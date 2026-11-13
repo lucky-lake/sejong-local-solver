@@ -384,7 +384,7 @@ function ring(score) {
       <circle cx="48" cy="48" r="40" fill="#fff" stroke="#22252B" stroke-width="2"/>
       <circle cx="48" cy="48" r="34" fill="none" stroke="#BFE7E3" stroke-width="10"/>
       <circle cx="48" cy="48" r="34" fill="none" stroke="#0F7F7A" stroke-width="10" stroke-linecap="round" stroke-dasharray="${arc} 999"/>
-    </svg><b>${score}<small>점</small></b></div>`;
+    </svg><b>${score}<small>관련도</small></b></div>`;
 }
 
 function teamCard(team) {
@@ -417,7 +417,7 @@ function showResult(analysis) {
       <div class="rrow">${ring(ringScore(first.score, classification.isDefault))}
         <div><span class="rtype">${esc(categoryName(first.id))}</span><h1 class="rtitle disp" tabindex="-1">${esc(classification.title)}</h1></div>
       </div>
-      ${second ? `<div class="alt"><span>다음으로 가까운 유형 · ${esc(categoryName(second.id))}</span><span>${ringScore(second.score)}점</span></div>` : ''}
+      ${second ? `<div class="alt"><span>다음으로 가까운 유형<b>${esc(categoryName(second.id))}</b></span><span class="nw">관련도 ${ringScore(second.score)}</span></div>` : ''}
       <div class="why" aria-label="찾은 키워드">${whyTags(classification).map((tag) => `<span>#${esc(tag)}</span>`).join('')}</div>
     </div>
     ${team ? teamCard(team) : ''}

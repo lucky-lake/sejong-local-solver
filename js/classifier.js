@@ -8,7 +8,7 @@ const AGENCY_CATEGORY_ID = 'funding';
 const SUPPORT_QUESTION_INDEX = 3;
 const UNAWARE_OF_SUPPORT = '몰랐다';
 
-// 결과 화면 점수 링(0~100)에 쓰는 환산. 근거가 하나면 64점, 둘이면 82점, 셋 이상이면 95점에서 멈춘다.
+// 결과 화면 '관련도' 링(0~100)에 쓰는 환산. 확률이 아니라 찾은 키워드·답이 많을수록 높아지는 시연용 값이다. 근거가 하나면 64점, 둘이면 82점, 셋 이상이면 95점에서 멈춘다.
 // 걸린 근거가 없을 때는 시안대로 60점에 '키워드가 적어 진단부터'를 함께 보인다.
 const RING_BASE = 46;
 const RING_PER_POINT = 9;

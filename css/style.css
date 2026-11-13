@@ -121,7 +121,9 @@ textarea::placeholder { color: #7B8190; }
 .ring b small { font-family: var(--body); font-size: 13px; font-weight: 700; color: var(--mut); margin-top: 4px; }
 .rtype { display: inline-block; font-size: 14px; font-weight: 800; background: var(--coral-l); color: #9A3219; border: 2px solid var(--ink); border-radius: 999px; padding: 3px 10px; margin: 0 0 6px; }
 .rtitle { font-size: 22px; line-height: 1.38; margin: 0; }
-.alt { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; color: var(--mut); border-top: 2px dashed #9FD9D4; padding-top: 10px; margin-top: 4px; }
+.alt { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; font-size: 14px; color: var(--mut); border-top: 2px dashed #9FD9D4; padding-top: 10px; margin-top: 4px; }
+/* 유형 이름은 둘째 줄에 통째로 둬서 '매장 사진·/디자인'처럼 끊기지 않게 한다. */
+.alt b { display: block; margin-top: 2px; font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; }
 .why { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .why span { font-size: 13px; font-weight: 700; background: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 3px 8px; }
 .card { border: 2px solid var(--ink); border-radius: 20px; background: #fff; margin: 0 0 14px; overflow: hidden; box-shadow: 4px 4px 0 var(--ink); }
@@ -168,10 +170,10 @@ textarea::placeholder { color: #7B8190; }
 }
 
 /* ---------- 3) 기관 대시보드 ----------
-   시안(1440px 폭)을 rem으로 옮겼다(1rem = 16px). 시안 내용은 1440×990 크기라서, 넓은 화면에서는
-   이 크기에 맞춰 글자·간격을 함께 키우거나 줄여 프로젝터 해상도가 달라도 스크롤 없이 한 화면에 들어온다. */
+   시안(1440px 폭)을 rem으로 옮겼다(1rem = 16px). 정책 제안 줄을 왼쪽 열로 올린 뒤 내용은 1440×900 크기라서,
+   넓은 화면에서는 이 크기에 맞춰 글자·간격을 함께 키우거나 줄여 프로젝터 해상도가 달라도 스크롤 없이 한 화면에 들어온다. */
 @media (min-width: 62.5em) {
-  html.dash-root { font-size: min(calc(100vw / 90), calc(100vh / 61.875)); }
+  html.dash-root { font-size: min(calc(100vw / 90), calc(100vh / 56.25)); }
 }
 .dash-body { background: #F3FAF9; }
 .dash-body .wrap { max-width: 90rem; margin: 0 auto; padding: 1.625rem 2.25rem 1.375rem; display: flex; flex-direction: column; gap: 1.25rem; }
@@ -200,8 +202,12 @@ textarea::placeholder { color: #7B8190; }
 .dash-body .kpi b small { font-size: 1.5rem; margin-left: .25rem; }
 .dash-body .kpi.gov { background: var(--teal); color: #fff; }
 .dash-body .kpi.gov p .ib { background: #fff; color: var(--teal); }
-.dash-body .cols { display: flex; flex-wrap: wrap; gap: 1.375rem; }
-.dash-body .panel { flex: 1 1 22.5rem; min-width: 0; padding: 1.125rem 1.25rem; }
+/* 오른쪽 열(QR + 방금 들어온 고민)이 더 길어서, 왼쪽은 정책 제안 줄을 아래에 두고
+   남는 높이는 두 패널이 나눠 가져 빈칸 없이 맞춘다. */
+.dash-body .cols { flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 1.375rem; }
+.dash-body .panel { flex: 1 1 22.5rem; min-width: 0; padding: 1.125rem 1.25rem; display: flex; flex-direction: column; }
+.dash-body #bars { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: space-evenly; }
+.dash-body .panel table { flex: 1 1 auto; }
 .dash-body .panel h2 { margin: 0 0 .75rem; font-size: 1.375rem; display: flex; align-items: center; gap: .5rem; }
 .dash-body .br { display: grid; grid-template-columns: 8.875rem minmax(0,1fr) 2.125rem; gap: .625rem; align-items: center; padding: .375rem 0; font-size: 1rem; font-weight: 700; }
 .dash-body .br .t { height: 1.375rem; border-radius: .6875rem; background: #EEF1F5; border: .125rem solid var(--ink); overflow: hidden; transition: box-shadow .3s; }
