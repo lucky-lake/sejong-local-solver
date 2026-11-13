@@ -1,8 +1,16 @@
 // 1분 체험: 라우팅, 화면 렌더링, 진행 상태.
 // 화면 구성·문구·상호작용은 확정 시안(design/prototype-index.html)을 따르고,
 // 분류는 classifier.js, 제출은 api.js(서버 연결 + 오프라인 대체)를 쓴다.
-import { analyze, buildSubmission, ringScore, MAX_TEXT_LENGTH } from './classifier.js';
-import { submit, flushPending, isConfigured, remainingSubmissions, MAX_SUBMISSIONS_PER_DEVICE } from './api.js';
+import { analyze, buildSubmission, matchTeam, ringScore, MAX_TEXT_LENGTH } from './classifier.js';
+import {
+  submit,
+  flushPending,
+  fetchSummary,
+  getLocalSubmissions,
+  isConfigured,
+  remainingSubmissions,
+  MAX_SUBMISSIONS_PER_DEVICE,
+} from './api.js';
 import { icon, gomi } from './art.js';
 
 const INDUSTRIES = [
@@ -42,6 +50,11 @@ const ROUTES = [...STEPS, 'result', 'done'];
 const AUTO_NEXT_MS = 220;
 const PHASE_MS = 360;
 const STATE_KEY = 'sls.flow.v2';
+const MAJORS = ['경영·사회', 'IT·이공', '디자인·예체능'];
+const LIVE_TASKS_SHOWN = 10;
+const BOARD_MAX = 18;
+const BOARD_REFRESH_MS = 10000;
+const SEAT_MS = 450;
 
 const app = document.getElementById('app');
 const dock = document.getElementById('dock');
@@ -53,6 +66,12 @@ let prevRoute = null;
 let backTo = null;
 let lastProgIdx = null;
 let state = loadState();
+let seedItems = null;
+let liveRecent = null;
+let liveFailed = false;
+let boardMajor = 'all';
+let boardGen = 0;
+const appliedTasks = new Set();
 
 function emptyState() {
   return {
@@ -157,12 +176,14 @@ function routeOf(hash) {
   const path = hash.replace(/^#/, '') || '/';
   const match = path.match(/^\/try\/([a-z]+)$/);
   if (match && ROUTES.includes(match[1])) return match[1];
+  if (path === '/board') return 'board';
   return path === '/about' ? 'about' : 'landing';
 }
 
 function hashOf(route) {
   if (route === 'landing') return '#/';
   if (route === 'about') return '#/about';
+  if (route === 'board') return '#/board';
   return `#/try/${route}`;
 }
 
@@ -251,6 +272,7 @@ function renderLanding() {
     <a class="btn" href="${hashOf('industry')}">사장님이 되어 1분 체험 ${icon('right', 22)}</a>
     <p class="fine">가게 이름·연락처 같은 개인정보는 받지 않아요</p>
     <div class="more">
+      <a class="wide" href="${hashOf('board')}">${icon('people', 18)}학생 과제 보드 보기</a>
       <a href="dashboard.html">${icon('hall', 18)}발표 화면 보기</a>
       <a href="${hashOf('about')}">${icon('question', 18)}어떻게 운영돼요?</a>
     </div>`;
@@ -387,12 +409,16 @@ function ring(score) {
     </svg><b>${score}<small>관련도</small></b></div>`;
 }
 
-function teamCard(team) {
-  const { heading, line, ours, oursNote } = config.costs;
-  const avatars = team.members.map((member) => {
+function memberAvatars(team) {
+  return team.members.map((member) => {
     const [color, short] = MAJOR_BADGE[member.major];
     return `<span class="av"><i style="background:${color}">${short}</i>${esc(member.major)}${member.count > 1 ? ` ${member.count}명` : ''}</span>`;
   }).join('');
+}
+
+function teamCard(team) {
+  const { heading, line, ours, oursNote } = config.costs;
+  const avatars = memberAvatars(team);
   return `<div class="card">
     <div class="h stu"><span class="ib" style="color:#6A4DE8">${icon('people', 20)}</span>추천 학생 팀<span class="r">${team.size}명 · ${esc(team.period)}</span></div>
     <div class="b">
@@ -513,9 +539,11 @@ function showDone() {
     <div class="row">
       <button type="button" class="btn white" id="again">처음부터 다시 ${icon('left', 20)}</button>
       <button type="button" class="link" id="close-done">결과 다시 보기</button>
+      <button type="button" class="link" id="to-board">학생 과제 보드 보기</button>
     </div>`;
   element.querySelector('#again').addEventListener('click', restart);
   element.querySelector('#close-done').addEventListener('click', () => closeTo('result'));
+  element.querySelector('#to-board').addEventListener('click', () => go('board'));
 }
 
 function restart() {
@@ -523,6 +551,188 @@ function restart() {
   saveState();
   lastProgIdx = null;
   go('landing');
+}
+
+// ---------- 학생 과제 보드 ----------
+// 사장님 고민(예시 + 방금 올라온 접수)을 학생 과제 카드로 보여 준다. 원문은 쓰지 않고 업종·지역·유형만 쓴다.
+// '팀으로 지원'은 시연용 애니메이션이고 어디에도 저장하지 않는다.
+function industryInfo(value) {
+  const item = INDUSTRIES.find((entry) => entry.value === value);
+  return { label: item?.label ?? value, icon: item?.icon ?? 'dots', bg: item?.bg ?? '#F5F7FA' };
+}
+
+function ago(ts) {
+  const minutes = Math.round((Date.now() - Date.parse(ts)) / 60000);
+  if (Number.isNaN(minutes)) return '';
+  if (minutes < 1) return '방금';
+  if (minutes < 60) return `${minutes}분 전`;
+  return `${Math.floor(minutes / 60)}시간 전`;
+}
+
+function toTask(key, source, item, categoryIds) {
+  const known = categoryIds
+    .map((id) => config.categories.find((category) => category.id === id))
+    .filter(Boolean);
+  // 카드 이름은 학생이 맡을 유형으로 단다. 자금·세무가 함께 걸린 고민은 그 부분만 기관으로 간다고 따로 적는다.
+  const studentPart = known.find((category) => !category.agencyOnly);
+  return {
+    key,
+    source,
+    ts: item.ts,
+    industry: item.industry,
+    area: item.area,
+    categoryId: (studentPart ?? known[0])?.id ?? null,
+    alsoAgency: Boolean(studentPart) && known.some((category) => category.agencyOnly),
+    team: known.length ? matchTeam({ top: known.map(({ id }) => ({ id })) }, config) : null,
+  };
+}
+
+// 서버에 연결되면 서버의 최근 접수, 아니면 이 기기에서 올린 접수를 쓴다(대시보드와 같은 규칙).
+function boardTasks() {
+  const live = isConfigured() && liveRecent
+    ? liveRecent.map((item) => toTask(`live|${item.ts}|${item.category}|${item.area}`, 'live', item, [item.category]))
+    : getLocalSubmissions().slice().reverse()
+      .map((item) => toTask(`device|${item.id}`, 'device', item, (item.categories ?? []).map((entry) => entry.id)));
+  const seeds = (seedItems ?? [])
+    .map((item) => toTask(`seed|${item.id}`, 'seed', item, item.categories.map((entry) => entry.id)));
+  return [...live.slice(0, LIVE_TASKS_SHOWN), ...seeds];
+}
+
+function taskCard(task) {
+  const info = industryInfo(task.industry);
+  const when = task.source === 'seed'
+    ? '<span class="when">예시</span>'
+    : `<span class="when new">${task.source === 'device' ? '이 기기 · ' : ''}${esc(ago(task.ts))}</span>`;
+  const button = appliedTasks.has(task.key)
+    ? `<button type="button" class="btn white sm" disabled>지원했어요 ${icon('check', 20)}</button>`
+    : `<button type="button" class="btn pur sm" data-apply="${esc(task.key)}">팀으로 지원하기 ${icon('right', 20)}</button>`;
+  return `<article class="card task">
+    <div class="h stu"><span class="ib" style="background:${info.bg}">${icon(info.icon, 20)}</span><span class="where">${esc(info.label)} · ${esc(task.area)}</span>${when}</div>
+    <div class="b">
+      <span class="rtype">${esc(categoryName(task.categoryId))}</span>
+      ${task.alsoAgency ? `<p class="also">${icon('hall', 16)}자금·세무는 기관으로 연결돼요</p>` : ''}
+      <div class="todo">${task.team.tasks.map((item) => `<div>${icon('check', 18)}<span>${keepParens(item)}</span></div>`).join('')}</div>
+      <div class="task-meta"><div class="avatars">${memberAvatars(task.team)}</div><span class="nw">${task.team.size}명 · ${esc(task.team.period)}</span></div>
+      ${button}
+    </div>
+  </article>`;
+}
+
+function drawBoard() {
+  const all = boardTasks();
+  const tasks = all.filter((task) => task.team).slice(0, BOARD_MAX);
+  const agencyOnly = all.filter((task) => !task.team && task.categoryId).length;
+  const shown = boardMajor === 'all'
+    ? tasks
+    : tasks.filter((task) => task.team.members.some((member) => member.major === boardMajor));
+  const liveCount = tasks.filter((task) => task.source !== 'seed').length;
+  let status = `방금 들어온 과제 ${liveCount}건 · 예시 과제 ${tasks.length - liveCount}건`;
+  if (!isConfigured()) status = '서버 연결 전이라 이 기기 접수와 예시 과제만 보여요';
+  else if (liveFailed && !liveRecent) status = '서버에 연결하지 못해 예시 과제만 보여요';
+
+  app.innerHTML = `<span class="badge">시연용 · 예시 과제 포함</span>
+    <div class="board-hero"><span class="spk">${icon('spark', 20)}</span>${gomi('happy', 72)}
+      <div><h1 class="disp" tabindex="-1">학생 과제 보드</h1><p>사장님들이 올린 고민이 과제가 돼요.<br>전공에 맞는 과제를 골라 팀으로 지원해요.</p></div>
+    </div>
+    <div class="filters" role="group" aria-label="전공 고르기">${['all', ...MAJORS].map((major) =>
+      `<button type="button" data-major="${major}" class="${boardMajor === major ? 'on' : ''}" aria-pressed="${boardMajor === major}">${major === 'all' ? '전체' : esc(major)}</button>`
+    ).join('')}</div>
+    <p class="board-status" aria-live="polite">${esc(status)}</p>
+    <div class="tasks">${shown.map(taskCard).join('') || '<p class="loading">이 전공에 맞는 과제가 아직 없어요.</p>'}</div>
+    ${agencyOnly ? `<p class="fine">자금·세무 고민 ${agencyOnly}건은 학생 과제가 아니라 기관으로 연결돼서 여기엔 없어요.</p>` : ''}
+    <div class="more">
+      <a href="${hashOf('landing')}">${icon('left', 18)}처음 화면</a>
+      <a href="dashboard.html">${icon('hall', 18)}발표 화면 보기</a>
+    </div>`;
+
+  app.querySelectorAll('[data-major]').forEach((button) => {
+    button.addEventListener('click', () => {
+      boardMajor = button.dataset.major;
+      drawBoard();
+    });
+  });
+  app.querySelectorAll('[data-apply]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const task = tasks.find((item) => item.key === button.dataset.apply);
+      if (task) showApply(task);
+    });
+  });
+}
+
+// 청중이 질의응답 중에 올리는 고민도 카드로 보이게 10초마다 다시 받아 온다.
+function refreshBoard(gen) {
+  if (!isConfigured()) return;
+  fetchSummary()
+    .then((summary) => {
+      liveRecent = summary.recent ?? [];
+      liveFailed = false;
+    })
+    .catch(() => {
+      liveFailed = true;
+    })
+    .then(() => {
+      if (gen !== boardGen || routeOf(location.hash) !== 'board') return;
+      drawBoard();
+      later(() => refreshBoard(gen), BOARD_REFRESH_MS);
+    });
+}
+
+function renderBoard() {
+  boardGen += 1;
+  const gen = boardGen;
+  if (seedItems) {
+    drawBoard();
+  } else {
+    app.innerHTML = '<p class="loading">과제를 불러오는 중이에요.</p>';
+    loadJson('data/seed.json')
+      .then((data) => {
+        seedItems = data.items;
+      })
+      .catch(() => {
+        seedItems = [];
+      })
+      .then(() => {
+        if (gen !== boardGen || routeOf(location.hash) !== 'board') return;
+        drawBoard();
+        app.querySelector('h1')?.focus({ preventScroll: true });
+      });
+  }
+  refreshBoard(gen);
+}
+
+function showApply(task) {
+  const seats = task.team.members.flatMap((member) => Array(member.count).fill(member.major));
+  // 내 자리는 고른 전공(전체를 골랐으면 첫 전공)으로 두고, 나머지 자리가 차례로 채워진다.
+  const mineAt = Math.max(seats.indexOf(boardMajor), 0);
+  const order = [seats[mineAt], ...seats.filter((_, i) => i !== mineAt)];
+  const info = industryInfo(task.industry);
+  const element = overlay('done team', 'dialog', '팀 지원');
+  element.setAttribute('aria-modal', 'true');
+  element.innerHTML = `${gomi('happy', 110)}
+    <h2 class="disp" tabindex="-1" id="team-title">팀을 꾸리는 중이에요</h2>
+    <div class="seats">${order.map((major, i) => {
+      const [color, short] = MAJOR_BADGE[major];
+      return `<span class="seat${i === 0 ? ' me' : ''}"><i style="--c:${color}">${i === 0 ? '나' : short}</i><small>${esc(major)}</small></span>`;
+    }).join('')}</div>
+    <p id="team-msg">${esc(info.label)} · ${esc(task.area)} 과제<br>${order.length}명이 모이면 시작해요</p>
+    <p class="status" id="team-note" hidden>시연이라 실제로 지원되지는 않아요</p>
+    <div class="row"><button type="button" class="btn white" id="team-close">보드로 돌아가기</button></div>`;
+  appliedTasks.add(task.key);
+
+  const seatElements = [...element.querySelectorAll('.seat')];
+  seatElements.forEach((seat, i) => later(() => seat.classList.add('on'), SEAT_MS * (i + 1)));
+  later(() => {
+    element.querySelector('#team-title').textContent = '지원 완료!';
+    element.querySelector('#team-msg').innerHTML = '사장님과 담당자가 확인하면 팀이 정해져요.<br>활동이 끝나면 확인서와 포트폴리오를 받아요.';
+    element.querySelector('#team-note').hidden = false;
+  }, SEAT_MS * (seatElements.length + 1));
+  element.querySelector('#team-close').addEventListener('click', closeApply);
+  element.querySelector('h2').focus({ preventScroll: true });
+}
+
+function closeApply() {
+  removeOverlay();
+  drawBoard();
 }
 
 // ---------- 그리기 ----------
@@ -545,6 +755,8 @@ function render() {
   if (route === 'landing' || route === 'about') {
     renderLanding();
     if (route === 'about') showAbout();
+  } else if (route === 'board') {
+    renderBoard();
   } else if (STEPS.includes(route)) {
     renderStep(route);
   } else {
@@ -558,7 +770,9 @@ function render() {
 }
 
 function onKey(event) {
-  if (event.key === 'Escape' && routeOf(location.hash) === 'about') closeTo('landing');
+  if (event.key !== 'Escape') return;
+  if (document.querySelector('.done.team')) closeApply();
+  else if (routeOf(location.hash) === 'about') closeTo('landing');
 }
 
 // 발표장처럼 접속이 몰릴 때 한 번 실패해도 멈추지 않게 다시 시도한다.
