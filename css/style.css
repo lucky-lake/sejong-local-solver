@@ -172,9 +172,11 @@ textarea::placeholder { color: #7B8190; }
 .board-hero .gomi { flex-shrink: 0; }
 .board-hero h1 { font-size: 26px; margin: 0 0 4px; }
 .board-hero p { font-size: 15px; line-height: 1.55; color: #3A3F4B; margin: 0; }
-.filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
-.filters button { appearance: none; min-height: 44px; padding: 0 10px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; font-size: 13px; font-weight: 700; }
-.filters button.on { background: var(--pur); color: #fff; }
+.mymajor { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; font-size: 15px; }
+.mymajor b { color: var(--pur); }
+.mymajor button { appearance: none; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; font-size: 14px; font-weight: 700; }
+.fit { display: inline-block; margin-left: 6px; font-size: 12px; font-weight: 800; color: #fff; background: var(--pur); border: 2px solid var(--ink); border-radius: 999px; padding: 3px 8px; vertical-align: top; }
+.major-ib { color: #fff; font-size: 15px; font-weight: 800; }
 .board-status { font-size: 13px; font-weight: 700; color: var(--mut); margin: 0 0 12px; }
 .task .h { font-size: 17px; }
 .task .h .where { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -187,7 +189,11 @@ textarea::placeholder { color: #7B8190; }
 .task-meta > span { margin-left: auto; }
 .btn.sm { min-height: 48px; font-size: 18px; }
 .btn.pur { background: var(--pur); }
-.btn:disabled { cursor: default; transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--yel), 1px 1px 0 2px var(--ink); }
+.btn.red { background: #B42318; }
+.choice { appearance: none; width: 100%; min-height: 72px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 16px; border: 2px solid var(--ink); border-radius: 16px; background: #fff; color: var(--ink); text-align: left; box-shadow: 4px 4px 0 var(--yel), 4px 4px 0 2px var(--ink); transition: transform .08s, box-shadow .08s; }
+.choice:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--yel), 1px 1px 0 2px var(--ink); }
+.choice b { font-family: var(--disp); font-weight: 400; font-size: 21px; }
+.choice small { font-size: 14px; color: var(--mut); }
 /* 팀 지원: 빈자리(점선)가 차례로 채워진다 */
 .done.team { background: var(--pur); }
 .seats { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 6px 0 18px; }
@@ -195,6 +201,7 @@ textarea::placeholder { color: #7B8190; }
 .seat i { width: 56px; height: 56px; border-radius: 50%; border: 2px dashed rgba(255,255,255,.8); display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 16px; font-weight: 800; color: transparent; transition: background .2s, color .2s; }
 .seat.on i { background: #fff; color: var(--c); border: 2px solid var(--ink); animation: pop .3s ease-out; }
 .seat.me.on i { background: var(--yel); color: var(--ink); }
+.seat.invite i { color: #fff; font-size: 26px; font-weight: 400; }
 .seat small { font-size: 13px; font-weight: 700; }
 @keyframes pop { 0% { transform: scale(.6); } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
