@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko" class="dash-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>세종 로컬 해결소 · 발표 화면</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" media="print" onload="this.media='all'">
+</head>
+<body class="dash-body">
+  <div class="wrap">
+    <div class="head">
+      <div class="l"><span id="mascot"></span><div><h1 class="disp">오늘 들어온 가게 고민</h1><p>세종 로컬 해결소 · 기관 대시보드</p></div></div>
+      <div class="live" aria-live="polite">
+        <span class="pill offline" id="mode"><i></i><span id="mode-text">불러오는 중</span></span>
+        <span class="pill dash" id="seed-tag">예시 데이터 포함</span>
+      </div>
+    </div>
+    <div class="main">
+      <div class="left">
+        <div class="kpis">
+          <div class="kpi stk"><p><span class="ib" id="i1" style="background:#FFE9E2;color:#C9472A"></span>접수된 고민</p><b><span id="k-total">0</span><small>건</small></b></div>
+          <div class="kpi stk gov"><p><span class="ib" id="i2"></span>기관 연결 필요</p><b><span id="k-agency">0</span><small>건</small></b></div>
+          <div class="kpi stk"><p><span class="ib" id="i3" style="background:#EEEAFE;color:#6A4DE8"></span>"뭐가 필요한지 몰라요"</p><b><span id="k-unknown">0</span><small>%</small></b></div>
+        </div>
+        <div class="cols">
+          <div class="panel stk"><h2 class="disp">문제 유형별</h2><div id="bars"></div></div>
+          <div class="panel stk"><h2 class="disp">지역 × 유형</h2><table id="heat"></table><p class="note">가게를 알아볼 수 없게 지역·유형 단위로만 세요</p></div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="qr stk">
+          <span id="qr-gomi"></span>
+          <div class="box">
+            <img id="qr" src="assets/qr.png" alt="1분 체험 주소 QR 코드" onerror="this.hidden=true;document.getElementById('qr-empty').hidden=false">
+            <span id="qr-empty" hidden>QR 코드<br>(배포 후 삽입)</span>
+          </div>
+          <h3 class="disp">지금 참여해 보세요!</h3>
+          <p>카메라로 찍으면 1분 체험이 열려요</p>
+        </div>
+        <div class="feed stk"><h2 class="disp">방금 들어온 고민</h2><ul id="feed"></ul></div>
+      </div>
+    </div>
+    <div class="policy stk"><b id="policy-count">기관 연결이 필요한 고민 0건</b><span>정책 제안 1 · 협력 창구 지정</span><span>정책 제안 2 · 기관 간 연계 협약</span></div>
+    <div class="keys">
+      <span>R 새로고침 · S 예시 데이터 켜기·끄기 · F 전체 화면 · <a href="index.html">1분 체험으로</a></span>
+      <span class="admin" id="admin" hidden>
+        <span id="admin-msg" aria-live="polite"></span>
+        <button type="button" id="reset">시연 데이터 비우기</button>
+      </span>
+    </div>
+  </div>
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

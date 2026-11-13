@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세종 로컬 해결소 · 발표 화면</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#22252B; --mut:#5B6170; --line:#E3E6EC; --teal:#0F7F7A; --mint:#DDF4F2; --pur:#6A4DE8; --pur-l:#EEEAFE; --coral:#C9472A; --coral-m:#FF8A6B; --coral-l:#FFE9E2; --sky-l:#E6F2FF; --yel:#FFD84D; --disp:"Jua","Noto Sans KR","Noto Sans CJK KR",system-ui,sans-serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Noto Sans KR","Noto Sans CJK KR",system-ui,sans-serif; color:var(--ink); background:#F3FAF9; -webkit-font-smoothing:antialiased; }
+  .disp { font-family:var(--disp); font-weight:400; }
+  .ic { display:block; flex-shrink:0; }
+  .wrap { max-width:1440px; margin:0 auto; padding:26px 36px 22px; display:flex; flex-direction:column; gap:20px; }
+  .head { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+  .head .l { display:flex; align-items:center; gap:12px; }
+  .head h1 { margin:0; font-size:38px; line-height:1.15; }
+  .head p { margin:2px 0 0; font-size:16px; color:var(--mut); font-weight:700; }
+  .live { display:flex; gap:10px; align-items:center; }
+  .pill { display:flex; align-items:center; gap:8px; border:2px solid var(--ink); border-radius:999px; padding:6px 14px; font-weight:800; font-size:15px; background:#fff; }
+  .pill i { width:10px; height:10px; border-radius:50%; background:#1FB86A; animation:pulse 1.4s infinite; }
+  @keyframes pulse { 50% { opacity:.25; } }
+  .pill.dash { border-style:dashed; border-color:#9AA1AE; color:var(--mut); font-weight:700; }
+  .stk { background:#fff; border:2px solid var(--ink); border-radius:22px; box-shadow:5px 5px 0 var(--ink); }
+  .main { display:flex; flex-wrap:wrap; gap:22px; }
+  .left { flex:999 1 640px; min-width:0; display:flex; flex-direction:column; gap:22px; }
+  .right { flex:1 1 330px; min-width:0; display:flex; flex-direction:column; gap:22px; }
+  .kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+  .kpi { padding:16px 20px; display:flex; flex-direction:column; gap:6px; }
+  .kpi p { margin:0; font-size:17px; font-weight:800; display:flex; align-items:center; gap:8px; }
+  .kpi p .ib { width:30px; height:30px; border-radius:10px; border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; }
+  .kpi b { font-family:var(--disp); font-weight:400; font-size:64px; line-height:1; }
+  .kpi b small { font-size:24px; margin-left:4px; }
+  .kpi.gov { background:var(--teal); color:#fff; } .kpi.gov p .ib { background:#fff; color:var(--teal); }
+  .cols { display:flex; flex-wrap:wrap; gap:22px; }
+  .panel { flex:1 1 360px; min-width:0; padding:18px 20px; }
+  .panel h2 { margin:0 0 12px; font-size:22px; display:flex; align-items:center; gap:8px; }
+  .br { display:grid; grid-template-columns:142px minmax(0,1fr) 34px; gap:10px; align-items:center; padding:6px 0; font-size:16px; font-weight:700; }
+  .br .t { height:22px; border-radius:11px; background:#EEF1F5; border:2px solid var(--ink); overflow:hidden; }
+  .br .t i { display:block; height:100%; background:var(--coral-m); transition:width .5s; border-right:2px solid var(--ink); }
+  .br .t i.gov { background:#39ADAA; }
+  .br .t i.z { border-right:0; }
+  .br b { font-family:var(--disp); font-weight:400; font-size:22px; text-align:right; }
+  .br.flash .t { box-shadow:0 0 0 4px var(--yel); }
+  table { width:100%; border-collapse:separate; border-spacing:6px; table-layout:fixed; } th:first-child { width:84px; }
+  th { font-size:14px; color:var(--mut); font-weight:800; text-align:center; }
+  td:first-child { font-size:16px; font-weight:800; white-space:nowrap; }
+  td div { height:50px; border-radius:12px; border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; font-family:var(--disp); font-size:24px; }
+  .note { font-size:14px; color:var(--mut); margin:8px 0 0; }
+  .qr { position:relative; padding:20px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; background:var(--yel); }
+  .qr .box { width:200px; height:200px; background:#fff; border:2px solid var(--ink); border-radius:16px; display:flex; align-items:center; justify-content:center; color:var(--mut); font-weight:700; font-size:15px; }
+  .qr .gomi { position:absolute; right:-6px; top:-30px; }
+  .qr h3 { margin:6px 0 0; font-size:30px; }
+  .qr p { margin:0; font-size:16px; font-weight:700; }
+  .feed { padding:18px 20px; }
+  .feed h2 { margin:0 0 10px; font-size:20px; }
+  .feed ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .feed li { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; border:2px solid var(--ink); border-radius:14px 14px 14px 4px; padding:9px 12px; background:var(--sky-l); font-size:15px; font-weight:700; }
+  .feed li span { color:var(--mut); font-size:13px; white-space:nowrap; } .feed li em { display:block; font-style:normal; font-size:13px; color:var(--mut); font-weight:700; margin-top:2px; }
+  .feed li.new { background:var(--yel); }
+  .policy { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:14px 20px; background:var(--pur-l); }
+  .policy b { font-family:var(--disp); font-weight:400; font-size:24px; }
+  .policy span { font-size:18px; font-weight:800; border:2px solid var(--ink); background:#fff; border-radius:999px; padding:4px 14px; }
+  .keys { font-size:13px; color:var(--mut); text-align:right; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="l"><span id="mascot"></span><div><h1 class="disp">오늘 들어온 가게 고민</h1><p>세종 로컬 해결소 · 기관 대시보드</p></div></div>
+    <div class="live"><span class="pill"><i></i>실시간</span><span class="pill dash" id="seedTag">예시 데이터 포함</span></div>
+  </div>
+  <div class="main">
+    <div class="left">
+      <div class="kpis">
+        <div class="kpi stk"><p><span class="ib" id="i1" style="background:#FFE9E2;color:#C9472A"></span>접수된 고민</p><b id="kTotal">0<small>건</small></b></div>
+        <div class="kpi stk gov"><p><span class="ib" id="i2"></span>기관 연결 필요</p><b id="kAg">0<small>건</small></b></div>
+        <div class="kpi stk"><p><span class="ib" id="i3" style="background:#EEEAFE;color:#6A4DE8"></span>"뭐가 필요한지 몰라요"</p><b id="kUn">0<small>%</small></b></div>
+      </div>
+      <div class="cols">
+        <div class="panel stk"><h2 class="disp">문제 유형별</h2><div id="bars"></div></div>
+        <div class="panel stk"><h2 class="disp">지역 × 유형</h2><table id="heat"></table><p class="note">가게를 알아볼 수 없게 지역·유형 단위로만 세요</p></div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="qr stk"><span id="qrg"></span><div class="box" aria-label="참여용 QR 코드 자리">QR 코드<br>(배포 후 삽입)</div><h3 class="disp">지금 참여해 보세요!</h3><p>카메라로 찍으면 1분 체험이 열려요</p></div>
+      <div class="feed stk"><h2 class="disp">방금 들어온 고민</h2><ul id="feed"></ul></div>
+    </div>
+  </div>
+  <div class="policy stk"><b id="pN">기관 연결이 필요한 고민 0건</b><span>정책 제안 1 · 협력 창구 지정</span><span>정책 제안 2 · 기관 간 연계 협약</span></div>
+  <div class="keys">S 예시 데이터 켜기·끄기 · F 전체 화면 · <a href="index.html">1분 체험으로</a></div>
+</div>
+<script>
+/* R3 아이콘·캐릭터 (모두 직접 그린 SVG) */
+(function () {
+  var P = {
+    cup: '<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 10h2a2.5 2.5 0 0 1 0 5h-2"/><path d="M8 3.5v2.5M12 3.5v2.5"/>',
+    bowl: '<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M8 20.5h8"/><path d="M9 7.5c0-2 2-2 2-4M14 7.5c0-2 2-2 2-4"/>',
+    bag: '<path d="M5 8h14l-1.2 12.5H6.2z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/>',
+    scissors: '<circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="M8.6 8.6L20 19M8.6 15.4L20 5"/>',
+    dots: '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+    train: '<rect x="5" y="3.5" width="14" height="14" rx="3"/><path d="M5 10.5h14M8.5 21l2-3.5M15.5 21l-2-3.5"/><circle cx="9" cy="14" r="1" fill="currentColor"/><circle cx="15" cy="14" r="1" fill="currentColor"/>',
+    city: '<path d="M3 21h18M5 21V10l5-3v14M10 21V4h9v17"/><path d="M13 8h3M13 12h3M13 16h3"/>',
+    tree: '<path d="M12 21v-5"/><path d="M12 16c-3.6 0-6-2.6-6-6a6 6 0 0 1 12 0c0 3.4-2.4 6-6 6z"/><path d="M4 21h16"/>',
+    bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>',
+    compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+    question: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.7.3-1 .8-1 1.6v.4"/><path d="M12 17.2v.1"/>',
+    store: '<path d="M4.5 10.5V20h15v-9.5"/><path d="M3 7l2-3.5h14L21 7v1a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M10 20v-5h4v5"/>',
+    people: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.8 0 5 2.2 5 5"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    won: '<circle cx="12" cy="12" r="9"/><path d="M7.5 9l2 6 2.5-5 2.5 5 2-6M7 12h10"/>',
+    hall: '<path d="M3 9l9-5 9 5"/><path d="M5 10v8M10 10v8M14 10v8M19 10v8M3 21h18"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    right: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    left: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+    up: '<path d="M12 20V5M6 11l6-6 6 6"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+    spark: '<path d="M12 2.5c.9 4.6 2.6 6.4 7.5 7.5-4.9 1.1-6.6 2.9-7.5 7.5-.9-4.6-2.6-6.4-7.5-7.5 4.9-1.1 6.6-2.9 7.5-7.5z" fill="currentColor" stroke="none"/>'
+  };
+  function icon(name, size, cls) {
+    return '<svg class="ic ' + (cls || '') + '" width="' + (size || 24) + '" height="' + (size || 24) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + P[name] + '</svg>';
+  }
+  /* 구름 캐릭터 '고미' : mood = happy | worry | think | wow */
+  function gomi(mood, size) {
+    var s = size || 120, ink = '#22252B';
+    var shapes = function (attrs) {
+      return '<circle cx="40" cy="54" r="24" ' + attrs + '/><circle cx="64" cy="40" r="28" ' + attrs + '/><circle cx="89" cy="56" r="21" ' + attrs + '/><rect x="22" y="52" width="86" height="28" rx="14" ' + attrs + '/>';
+    };
+    var eyes = mood === 'happy' || mood === 'wow'
+      ? '<path d="M50 60q5-6 10 0M70 60q5-6 10 0" fill="none" stroke="' + ink + '" stroke-width="3.2" stroke-linecap="round"/>'
+      : '<circle cx="55" cy="59" r="4" fill="' + ink + '"/><circle cx="75" cy="59" r="4" fill="' + ink + '"/>';
+    var mouth = {
+      happy: '<path d="M59 67q6 6 12 0" fill="none" stroke="' + ink + '" stroke-width="3" stroke-linecap="round"/>',
+      wow: '<path d="M58 66q7 9 14 0z" fill="' + ink + '"/>',
+      worry: '<path d="M60 70q5-4 10 0" fill="none" stroke="' + ink + '" stroke-width="3" stroke-linecap="round"/>',
+      think: '<path d="M60 69h10" stroke="' + ink + '" stroke-width="3" stroke-linecap="round"/>'
+    }[mood || 'happy'];
+    var extra = '';
+    if (mood === 'worry') extra = '<path d="M101 26c4 6 5 9 2 11.5-2.6 2-6-.5-5.3-3.6.5-2.4 2-4.6 3.3-7.9z" fill="#8CC8FF" stroke="' + ink + '" stroke-width="2"/><path d="M50 51l8 2M80 51l-8 2" stroke="' + ink + '" stroke-width="2.6" stroke-linecap="round"/>';
+    if (mood === 'think') extra = '<circle cx="104" cy="28" r="4" fill="' + ink + '"/><circle cx="114" cy="18" r="3" fill="' + ink + '"/><circle cx="96" cy="36" r="2.6" fill="' + ink + '"/>';
+    if (mood === 'happy' || mood === 'wow') extra = '<path d="M108 14c.6 3 1.7 4.2 4.8 4.8-3.1.6-4.2 1.8-4.8 4.8-.6-3-1.7-4.2-4.8-4.8 3.1-.6 4.2-1.8 4.8-4.8z" fill="#FFC93C" stroke="' + ink + '" stroke-width="1.5"/><path d="M14 22c.5 2.4 1.4 3.3 3.8 3.8-2.4.5-3.3 1.4-3.8 3.8-.5-2.4-1.4-3.3-3.8-3.8 2.4-.5 3.3-1.4 3.8-3.8z" fill="#7FD8D0" stroke="' + ink + '" stroke-width="1.5"/>';
+    return '<svg class="gomi" width="' + s + '" height="' + Math.round(s * 0.8) + '" viewBox="0 0 130 104" aria-hidden="true">' +
+      '<g>' + shapes('fill="' + ink + '" stroke="' + ink + '" stroke-width="7"') + '</g>' +
+      '<g>' + shapes('fill="#FFFFFF"') + '</g>' +
+      '<ellipse cx="46" cy="67" rx="5.5" ry="3.4" fill="#FFB8A6"/><ellipse cx="84" cy="67" rx="5.5" ry="3.4" fill="#FFB8A6"/>' + eyes + mouth + extra + '</svg>';
+  }
+  window.ART = { icon: icon, gomi: gomi };
+})();
+
+</script>
+<script>
+var A = window.ART;
+document.getElementById('mascot').innerHTML = A.gomi('happy', 92);
+document.getElementById('qrg').innerHTML = A.gomi('wow', 96);
+document.getElementById('i1').innerHTML = A.icon('store', 18); document.getElementById('i2').innerHTML = A.icon('hall', 18); document.getElementById('i3').innerHTML = A.icon('question', 18);
+var LABEL = { promo: '홍보·온라인 노출', visual: '매장 사진·디자인', price: '메뉴·가격', customer: '고객·상권 분석', digital: '예약·주문 디지털화', ops: '운영·재고', money: '자금·세무·제도' };
+var ORDER = ['promo', 'visual', 'price', 'customer', 'digital', 'ops', 'money'];
+var HEAT_COLS = [['promo', '홍보'], ['visual', '사진·디자인'], ['price', '메뉴·가격'], ['customer', '고객·상권'], ['etc', '기타']];
+var AREAS = ['조치원읍', '신도심', '면 지역'], IND = ['카페·디저트', '음식점', '소매', '서비스(미용·학원 등)'];
+var SEED = (function () { var plan = [['promo', 9], ['visual', 5], ['price', 4], ['customer', 3], ['digital', 2], ['ops', 1], ['money', 2]], out = [], n = 0;
+  plan.forEach(function (p) { for (var i = 0; i < p[1]; i++) { out.push({ ts: Date.now() - (60 - n) * 60000, industry: IND[n % 4], area: AREAS[(n * 7) % 3 === 2 && n % 2 ? 2 : n % 2], state: n % 3 === 0 ? 'unknown' : 'direction', type: p[0], needsAgency: p[0] === 'money' || n % 4 === 0 }); n++; } }); return out; })();
+var useSeed = true, lastCount = -1;
+function live() { try { return JSON.parse(localStorage.getItem('sls_submissions') || '[]'); } catch (e) { return []; } }
+function tint(v, max) { var t = max ? v / max : 0, a = [240, 250, 249], b = [15, 127, 122]; return 'rgb(' + a.map(function (x, i) { return Math.round(x + (b[i] - x) * t); }).join(',') + ')'; }
+function lum(c) { var m = c.match(/\d+/g).map(Number).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]; }
+function draw() {
+  var L = live(), data = (useSeed ? SEED : []).concat(L);
+  document.getElementById('seedTag').textContent = useSeed ? '예시 데이터 포함' : '실제 접수만';
+  var total = data.length, ag = data.filter(function (d) { return d.needsAgency; }).length, un = total ? Math.round(data.filter(function (d) { return d.state === 'unknown'; }).length / total * 100) : 0;
+  document.getElementById('kTotal').innerHTML = total + '<small>건</small>'; document.getElementById('kAg').innerHTML = ag + '<small>건</small>'; document.getElementById('kUn').innerHTML = un + '<small>%</small>';
+  document.getElementById('pN').textContent = '기관 연결이 필요한 고민 ' + ag + '건';
+  var cnt = {}; ORDER.forEach(function (k) { cnt[k] = 0; }); data.forEach(function (d) { cnt[d.type]++; });
+  var max = Math.max.apply(null, ORDER.map(function (k) { return cnt[k]; }).concat([1]));
+  var newest = L.length ? L[L.length - 1].type : null, isNew = L.length !== lastCount && lastCount !== -1;
+  document.getElementById('bars').innerHTML = ORDER.map(function (k) { var w = Math.round(cnt[k] / max * 100); return '<div class="br' + (isNew && k === newest ? ' flash' : '') + '"><span>' + LABEL[k] + '</span><div class="t"><i class="' + (k === 'money' ? 'gov' : '') + (w ? '' : ' z') + '" style="width:' + w + '%"></i></div><b>' + cnt[k] + '</b></div>'; }).join('');
+  var cell = {}, hmax = 1; AREAS.forEach(function (a) { cell[a] = {}; HEAT_COLS.forEach(function (c) { cell[a][c[0]] = 0; }); });
+  data.forEach(function (d) { var c = ['promo', 'visual', 'price', 'customer'].indexOf(d.type) >= 0 ? d.type : 'etc'; if (cell[d.area]) { cell[d.area][c]++; hmax = Math.max(hmax, cell[d.area][c]); } });
+  document.getElementById('heat').innerHTML = '<tr><th></th>' + HEAT_COLS.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr>' + AREAS.map(function (a) { return '<tr><td>' + a + '</td>' + HEAT_COLS.map(function (c) { var v = cell[a][c[0]]; var bg = tint(v, hmax); return '<td><div style="background:' + bg + ';color:' + (lum(bg) < 0.3 ? '#fff' : '#22252B') + '">' + v + '</div></td>'; }).join('') + '</tr>'; }).join('');
+  var recent = data.slice().sort(function (x, y) { return y.ts - x.ts; }).slice(0, 4);
+  document.getElementById('feed').innerHTML = recent.map(function (d, i) { var m = Math.max(0, Math.round((Date.now() - d.ts) / 60000)); return '<li class="' + (i === 0 && isNew ? 'new' : '') + '"><div>' + LABEL[d.type] + '<em>' + d.industry + ' · ' + d.area + '</em></div><span>' + (m < 1 ? '방금' : m + '분 전') + '</span></li>'; }).join('');
+  lastCount = L.length;
+}
+document.addEventListener('keydown', function (e) { if (e.key === 's' || e.key === 'S') { useSeed = !useSeed; draw(); } if (e.key === 'f' || e.key === 'F') { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); } catch (x) {} } });
+window.addEventListener('storage', draw); draw(); setInterval(draw, 3000);
+</script>
+</body>
+</html>

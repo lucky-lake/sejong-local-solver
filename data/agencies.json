@@ -1,0 +1,26 @@
+{
+  "_note": "기관명은 팀이 확인한 뒤 채운다. 확인 전에는 일반 명칭만 쓰고 confirmed는 false로 둔다. when: 'always'(늘), 'needsAgency'(기관 연결이 필요할 때), 유형 id 목록(상위 유형과 겹칠 때)",
+  "agencies": [
+    {
+      "id": "finance",
+      "name": "소상공인 지원기관",
+      "reason": "정책자금·세무 상담으로 연결",
+      "when": "needsAgency",
+      "confirmed": false
+    },
+    {
+      "id": "digital",
+      "name": "소상공인 지원기관",
+      "reason": "온라인 판로·디지털 교육 안내",
+      "when": ["promo", "design", "booking"],
+      "confirmed": false
+    },
+    {
+      "id": "youth",
+      "name": "청년 지원기관",
+      "reason": "참여 학생 활동 확인서 발급",
+      "when": "always",
+      "confirmed": false
+    }
+  ]
+}

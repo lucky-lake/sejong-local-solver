@@ -1,0 +1,9 @@
+# 공개 저장소에 올리지 않는 것
+# 개요서 PDF 등 팀원 이름이 들어간 참고 자료 (SPEC 8장)
+/refs/
+# 팀원 이름이 든 작업 메모 (CONTEXT.md 등)
+/docs/
+
+# 윈도우가 만드는 파일
+Thumbs.db
+desktop.ini
