@@ -2,7 +2,7 @@
 
 // README '6. 웹앱 주소를 api.js에 넣기'에서 복사한 주소(…/exec)를 따옴표 안에 붙여 넣는다.
 // 비워 두면 서버 없이 오프라인 시연 모드로 동작한다.
-export const API_URL = '';
+export const API_URL = 'https://script.google.com/macros/s/AKfycbzEvr_4R0sZdJ2wz2RIQ20kPHUgeLY25fdSiz-8WXnemZY08eWYK5vT7qVb12mOY0yA/exec';
 
 export const MAX_SUBMISSIONS_PER_DEVICE = 3;
 
