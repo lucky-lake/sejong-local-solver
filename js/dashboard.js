@@ -429,9 +429,10 @@ function paintHot() {
 // 종 알림함
 function ringBell() {
   const bell = $('bell');
-  bell.classList.remove('ring');
+  // 'ring'은 결과 화면 점수 원(.ring) 클래스와 겹쳐 종이 눕는다. 다른 이름을 쓴다.
+  bell.classList.remove('ringing');
   void bell.offsetWidth;
-  bell.classList.add('ring');
+  bell.classList.add('ringing');
 }
 
 function unseenCount() {
