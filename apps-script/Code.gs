@@ -1,30 +1,33 @@
 /**
- * 세종 로컬 해결소(가칭) 시연용 Apps Script 웹앱 (SPEC 3-3)
+ * 세종 로컬 해결소(가칭) 시연용 Apps Script 웹앱 (SPEC 3-3, 3-3b)
  *
  * doPost  {action:"save",  record}  접수 한 건 저장
  *         {action:"reset", key}     시연 데이터 비우기 (관리자 키 필요)
- * doGet   ?action=summary           집계 JSON (자유 입력 원문은 보내지 않음)
+ * doGet   ?action=summary           집계 JSON (고민 원문·매장명은 보내지 않음)
  *
  * 관리자 키는 이 파일에 적지 않는다.
  * [프로젝트 설정] → [스크립트 속성]에 ADMIN_KEY 라는 이름으로만 저장한다.
  */
 
 const SHEET_NAME = '접수';
+// 1행 머리글. 값은 열 위치가 아니라 이 이름으로 찾아 넣는다(이미 만든 시트에 열을 끼워 넣어도 안 깨지게).
 const HEADERS = [
-  'id', 'ts', 'receivedAt', 'industry', 'area', 'dong', 'years', 'concernState', 'text',
-  'diag1', 'diag2', 'diag3', 'diag4', 'cat1', 'score1', 'cat2', 'score2', 'majors', 'needsAgency', 'source',
+  'id', '접수시각', '매장명', '업종', '지역', '운영기간', '고민상태', '고민원문', '진단답',
+  '1순위유형', '1순위점수', '2순위유형', '추천전공', '기관연결필요', '출처',
 ];
+const STORE_HEADER = '매장명';
+const STORE_COLUMN = 3; // 이미 있는 시트에 매장명이 없으면 C열에 끼워 넣는다.
 const MAX_TEXT_LENGTH = 200;
+const MAX_STORE_LENGTH = 30;
 const RECENT_COUNT = 10;
 const LOCK_WAIT_MS = 10000;
-const SUMMARY_CACHE_KEY = 'summary-v1';
+const SUMMARY_CACHE_KEY = 'summary-v2';
 const SUMMARY_CACHE_SECONDS = 2;
 
 // 화면(js/app.js, data/categories.json)에 있는 값만 받는다.
 const ALLOWED = {
   industry: ['카페·디저트', '음식점', '소매', '서비스(미용·학원 등)', '기타'],
   area: ['조치원읍', '신도심', '면 지역'],
-  dong: ['나성동', '도담동', '어진동', '보람동', '소담동', '대평동', '새롬동', '한솔동', '아름동', '종촌동', '고운동', '다정동', '반곡동', '해밀동', '집현동'],
   years: ['1년 미만', '1~3년', '3년 이상'],
   concernState: ['known', 'direction', 'unknown'],
   category: ['promo', 'menu', 'ops', 'booking', 'design', 'customer', 'funding'],
@@ -37,11 +40,10 @@ const ALLOWED = {
   ],
 };
 
-// 원문은 시트에만 남지만, 장난 입력과 연락처는 저장 전에 가린다.
+// 원문·매장명은 시트에만 남지만, 장난 입력과 연락처는 저장 전에 가린다.
 const BANNED_WORDS = ['씨발', '시발', 'ㅅㅂ', '병신', 'ㅂㅅ', '개새', '좆', '존나', 'fuck', 'shit'];
 const PHONE_PATTERN = /01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/g;
 const ID_PATTERN = /^[a-z0-9-]{4,40}$/;
-const TS_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 
 function doGet(e) {
   const action = e && e.parameter && e.parameter.action;
@@ -61,7 +63,7 @@ function doPost(e) {
   return json_({ ok: false, error: 'unknown_action' });
 }
 
-/** 처음 한 번 편집기에서 실행한다. 권한을 승인하고 '접수' 탭과 머리글을 만든다. */
+/** 편집기에서 실행한다. 권한을 승인하고 '접수' 탭과 머리글을 만들거나, 빠진 머리글을 채운다. */
 function setup() {
   getSheet_();
 }
@@ -73,8 +75,32 @@ function getSheet_() {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(HEADERS);
     sheet.setFrozenRows(1);
+    return sheet;
   }
+  const present = headerRow_(sheet);
+  if (present.indexOf(STORE_HEADER) === -1) {
+    sheet.insertColumnBefore(STORE_COLUMN);
+    sheet.getRange(1, STORE_COLUMN).setValue(STORE_HEADER);
+  }
+  const now = headerRow_(sheet);
+  HEADERS.filter((name) => now.indexOf(name) === -1).forEach((name) => {
+    sheet.getRange(1, sheet.getLastColumn() + 1).setValue(name);
+  });
   return sheet;
+}
+
+function headerRow_(sheet) {
+  const width = Math.max(sheet.getLastColumn(), 1);
+  return sheet.getRange(1, 1, 1, width).getValues()[0].map((value) => String(value).trim());
+}
+
+// 머리글 이름 → 열 번호(0부터)
+function headerIndex_(sheet) {
+  const index = {};
+  headerRow_(sheet).forEach((name, i) => {
+    if (name && !(name in index)) index[name] = i;
+  });
+  return index;
 }
 
 function save_(raw) {
@@ -89,9 +115,10 @@ function save_(raw) {
   }
   try {
     const sheet = getSheet_();
+    const index = headerIndex_(sheet);
     // 응답을 못 받은 기기가 다시 보내도 한 번만 센다.
-    if (hasId_(sheet, record.id)) return { ok: true, duplicate: true };
-    sheet.appendRow(toRow_(record, new Date().toISOString()));
+    if (hasId_(sheet, index, record.id)) return { ok: true, duplicate: true };
+    sheet.appendRow(toRow_(record, new Date().toISOString(), index, sheet.getLastColumn()));
     CacheService.getScriptCache().remove(SUMMARY_CACHE_KEY);
     return { ok: true };
   } finally {
@@ -116,7 +143,7 @@ function reset_(key) {
   try {
     const sheet = getSheet_();
     const last = sheet.getLastRow();
-    if (last > 1) sheet.getRange(2, 1, last - 1, HEADERS.length).clearContent();
+    if (last > 1) sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).clearContent();
     CacheService.getScriptCache().remove(SUMMARY_CACHE_KEY);
     return { ok: true, cleared: Math.max(last - 1, 0) };
   } finally {
@@ -129,27 +156,34 @@ function getSummary_() {
   const cached = cache.get(SUMMARY_CACHE_KEY);
   if (cached) return JSON.parse(cached);
 
-  const values = getSheet_().getDataRange().getValues();
-  const col = (name) => HEADERS.indexOf(name);
-  // 집계에 필요한 칸만 꺼낸다. text 칸은 읽지 않는다.
+  const sheet = getSheet_();
+  const index = headerIndex_(sheet);
+  const values = sheet.getDataRange().getValues();
+  const cell = (row, name) => (name in index ? row[index[name]] : '');
+  // 집계에 필요한 칸만 꺼낸다. 고민원문·매장명 칸은 읽지 않는다.
   const records = values.slice(1)
-    .filter((row) => row[col('id')])
-    .map((row) => ({
-      ts: toIso_(row[col('receivedAt')]),
-      industry: row[col('industry')],
-      area: row[col('area')],
-      concernState: row[col('concernState')],
-      categories: row[col('cat1')] ? [{ id: row[col('cat1')] }] : [],
-      needsAgency: row[col('needsAgency')] === true || row[col('needsAgency')] === 'TRUE',
-      source: 'live',
-    }));
+    .filter((row) => cell(row, 'id'))
+    .map((row) => {
+      const agency = cell(row, '기관연결필요');
+      const category = cell(row, '1순위유형');
+      return {
+        id: String(cell(row, 'id')),
+        ts: toIso_(cell(row, '접수시각')),
+        industry: cell(row, '업종'),
+        area: cell(row, '지역'),
+        concernState: cell(row, '고민상태'),
+        categories: category ? [{ id: category }] : [],
+        needsAgency: agency === true || String(agency).toUpperCase() === 'TRUE',
+        source: 'live',
+      };
+    });
 
   const summary = summarize_(records);
   cache.put(SUMMARY_CACHE_KEY, JSON.stringify(summary), SUMMARY_CACHE_SECONDS);
   return summary;
 }
 
-// js/dashboard.js 의 summarize()와 같은 규칙으로 센다.
+// js/dashboard.js 의 summarize()와 같은 규칙으로 센다. 최근 10건에는 새 접수 알림용 id와 서버가 받은 시각을 넣는다.
 function summarize_(records) {
   const summary = {
     total: 0,
@@ -179,10 +213,13 @@ function summarize_(records) {
     .sort((a, b) => (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0))
     .slice(0, RECENT_COUNT)
     .map((record) => ({
+      id: record.id,
       ts: record.ts,
       industry: record.industry,
       area: record.area,
       category: record.categories && record.categories[0] ? record.categories[0].id : null,
+      concernState: record.concernState,
+      needsAgency: record.needsAgency,
       source: record.source,
     }));
   return summary;
@@ -210,14 +247,13 @@ function cleanRecord_(raw) {
 
   return {
     id,
-    ts: TS_PATTERN.test(String(raw.ts || '')) ? String(raw.ts) : '',
+    storeName: cleanText_(raw.storeName, MAX_STORE_LENGTH),
     industry,
     area,
-    dong: area === '신도심' ? pick_(raw.dong, ALLOWED.dong) : null,
     years,
     concernState,
-    text: concernState === 'unknown' ? '' : cleanText_(raw.text),
-    diag: ALLOWED.diag.map((options, index) => pick_(raw.diag && raw.diag[index], options)),
+    text: concernState === 'unknown' ? '' : cleanText_(raw.text, MAX_TEXT_LENGTH),
+    diag: ALLOWED.diag.map((options, index) => pick_(raw.diag && raw.diag[index], options)).filter(Boolean),
     categories,
     majors: (Array.isArray(raw.majors) ? raw.majors : [])
       .filter((major) => ALLOWED.major.indexOf(major) !== -1)
@@ -227,8 +263,9 @@ function cleanRecord_(raw) {
   };
 }
 
-function cleanText_(value) {
-  let text = String(value || '').slice(0, MAX_TEXT_LENGTH).replace(PHONE_PATTERN, '[번호 삭제]');
+// 앞뒤 공백 제거 → 길이 자르기 → 연락처·금칙어 가리기 → 수식처럼 시작하면 앞에 ' 붙이기
+function cleanText_(value, maxLength) {
+  let text = String(value || '').trim().slice(0, maxLength).replace(PHONE_PATTERN, '[번호 삭제]');
   const squashed = text.replace(/\s+/g, '').toLowerCase();
   if (BANNED_WORDS.some((word) => squashed.indexOf(word) !== -1)) text = '[금칙어로 가림]';
   // =, +, -, @ 로 시작하면 시트가 수식으로 실행하지 않게 앞에 '를 붙인다.
@@ -236,33 +273,36 @@ function cleanText_(value) {
   return text;
 }
 
-function toRow_(record, receivedAt) {
+function toRow_(record, receivedAt, index, width) {
   const [first, second] = record.categories;
-  return [
-    record.id,
-    record.ts,
-    receivedAt,
-    record.industry,
-    record.area,
-    record.dong || '',
-    record.years || '',
-    record.concernState,
-    record.text,
-    ...record.diag.map((answer) => answer || ''),
-    first.id,
-    first.score,
-    second ? second.id : '',
-    second ? second.score : '',
-    record.majors.join(', '),
-    record.needsAgency,
-    record.source,
-  ];
+  const values = {
+    id: record.id,
+    접수시각: receivedAt,
+    매장명: record.storeName,
+    업종: record.industry,
+    지역: record.area,
+    운영기간: record.years || '',
+    고민상태: record.concernState,
+    고민원문: record.text,
+    진단답: record.diag.join(', '),
+    '1순위유형': first.id,
+    '1순위점수': first.score,
+    '2순위유형': second ? second.id : '',
+    추천전공: record.majors.join(', '),
+    기관연결필요: record.needsAgency,
+    출처: record.source,
+  };
+  const row = new Array(Math.max(width, HEADERS.length)).fill('');
+  Object.keys(values).forEach((name) => {
+    if (name in index) row[index[name]] = values[name];
+  });
+  return row;
 }
 
-function hasId_(sheet, id) {
+function hasId_(sheet, index, id) {
   const last = sheet.getLastRow();
-  if (last < 2) return false;
-  return sheet.getRange(2, 1, last - 1, 1).getValues().some((row) => row[0] === id);
+  if (last < 2 || !('id' in index)) return false;
+  return sheet.getRange(2, index.id + 1, last - 1, 1).getValues().some((row) => String(row[0]) === id);
 }
 
 function pick_(value, options) {

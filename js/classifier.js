@@ -2,6 +2,7 @@
 // 점수 = 키워드 일치 수 × 가중치 + 진단 답 가중치 + 업종 보정 (SPEC 3-2)
 
 export const MAX_TEXT_LENGTH = 200;
+export const MAX_STORE_LENGTH = 30;
 
 const DEFAULT_CATEGORY_ID = 'customer';
 const AGENCY_CATEGORY_ID = 'funding';
@@ -166,10 +167,12 @@ export function analyze(input, config, agencies) {
 }
 
 // 저장 형식은 SPEC 3-3을 따른다. 시각·id는 호출하는 쪽에서 넣어 순수 함수로 유지한다.
-export function buildSubmission(input, analysis, { id, ts, source = 'live' }) {
+// 가게 이름(선택)은 시트에만 저장되고 집계·대시보드·알림에는 쓰지 않는다.
+export function buildSubmission(input, analysis, { id, ts, source = 'live', storeName = '' }) {
   return {
     id,
     ts,
+    storeName: String(storeName ?? '').trim().slice(0, MAX_STORE_LENGTH),
     industry: input.industry,
     area: input.area,
     dong: input.dong || null,

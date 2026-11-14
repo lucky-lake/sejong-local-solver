@@ -124,6 +124,14 @@
   .ag + .ag { border-top:2px dashed var(--line); }
   .ag b { display:block; font-size:16px; } .ag small { font-size:14px; color:var(--mut); }
   .pend { font-size:13px; font-weight:700; color:var(--mut); border:2px dashed #9AA1AE; border-radius:999px; padding:2px 8px; white-space:nowrap; }
+  .store { margin-top:14px; border:2px solid var(--ink); border-radius:18px; background:var(--yel); box-shadow:4px 4px 0 var(--ink); padding:14px; }
+  .store label { display:flex; align-items:center; gap:8px; font-weight:800; font-size:17px; margin:0 0 8px; }
+  .store label .ib { width:32px; height:32px; border-radius:10px; border:2px solid var(--ink); background:#fff; display:flex; align-items:center; justify-content:center; color:var(--coral); }
+  .store label em { font-style:normal; font-size:14px; font-weight:700; color:#5A4A00; background:#FFF3B8; border:2px solid var(--ink); border-radius:999px; padding:1px 9px; }
+  .store input { width:100%; min-height:52px; border:2px solid var(--ink); border-radius:14px; padding:0 14px; font:inherit; font-size:17px; background:#fff; color:var(--ink); }
+  .store input::placeholder { color:#7B8190; }
+  .store input:focus-visible { outline:3px solid var(--sky); outline-offset:2px; }
+  .store p { word-break:keep-all; margin:8px 0 0; font-size:14px; line-height:1.5; font-weight:700; color:#4A3F00; display:flex; gap:6px; align-items:flex-start; }
   .human { display:flex; gap:10px; align-items:center; font-size:14px; line-height:1.5; background:var(--soft); border-radius:14px; padding:12px; color:#3A3F4B; }
   .badge { display:inline-block; font-size:13px; font-weight:700; color:var(--mut); margin:0 0 10px; }
   /* done */
@@ -283,7 +291,7 @@
 </script>
 <script>
 var C = window.CORE, A = window.ART;
-var S = { screen: 'landing', industry: null, area: null, state: null, symptom: null, text: '', result: null, err: false };
+var S = { screen: 'landing', industry: null, area: null, state: null, symptom: null, text: '', store: '', result: null, err: false };
 var STEPS = ['industry', 'area', 'state', 'concern'];
 var IC_IND = { '카페·디저트': ['cup', '#FFE9E2'], '음식점': ['bowl', '#FFF4CC'], '소매': ['bag', '#EEEAFE'], '서비스(미용·학원 등)': ['scissors', '#E6F2FF'], '기타': ['dots', '#F5F7FA'] };
 var IC_AREA = { '조치원읍': ['train', '#FFF4CC', '조치원역·대학가 원도심'], '신도심': ['city', '#E6F2FF', '나성·도담·어진동 등'], '면 지역': ['tree', '#DDF4F2', '연서·장군·연동면 등'] };
@@ -334,7 +342,7 @@ function render() {
       if (S.state === 'unknown') h += '<h1 class="q disp">요즘 가장 아쉬운 건요?</h1><div class="grid">' + C.SYMPTOMS.map(function (x) { return tile('symptom', x, x, IC_SYM[x][0], IC_SYM[x][1]); }).join('') + '</div>';
       else {
         h += '<div class="ask">' + A.gomi('worry', 92) + '<span class="bubble">어떤 고민인지 들려주세요</span></div>' +
-          '<label for="txt" class="exh" style="display:block;margin:0 0 8px">한두 문장이면 충분해요 (가게 이름은 빼고)</label>' +
+          '<label for="txt" class="exh" style="display:block;margin:0 0 8px">한두 문장이면 충분해요 (연락처는 빼고)</label>' +
           '<textarea id="txt" maxlength="200" placeholder="예: 손님이 줄었는데 이유를 모르겠어요">' + C.esc(S.text) + '</textarea>' +
           (S.err ? '<p class="err" role="alert">고민을 적거나 아래 예시를 골라 주세요</p>' : '') +
           '<p class="exh">다른 사장님들은 이렇게 말해요</p><div class="chips">' + C.EXAMPLES.map(function (e, i) { return '<button class="chip" data-ex="' + i + '">' + C.esc(e) + '</button>'; }).join('') + '</div>';
@@ -371,7 +379,11 @@ function render() {
         '<div class="cost"><span>같은 일을 외주로 맡기면 (크몽 평균)</span><b>메뉴판 약 7만 원 · 숏폼 영상 약 13만 원</b><span>해결소는 소액 참여비로 진행해요 (금액은 설문 후 확정)</span></div></div></div>' : '') +
       '<div class="card"><div class="h gov"><span class="ib" style="color:#0F7F7A">' + A.icon('hall', 20) + '</span>공공기관 연결</div><div class="b">' +
         r.agencies.map(function (g) { return '<div class="ag"><span><b>' + g.name + '</b><small>' + g.what + '</small></span><span class="pend">협력 미확인</span></div>'; }).join('') + '</div></div>' +
-      '<div class="human">' + A.gomi('happy', 44) + '<span>실제 운영에서는 담당자가 이 분석을 확인한 뒤 연결해요. AI는 추천만 해요.</span></div>';
+      '<div class="human">' + A.gomi('happy', 44) + '<span>실제 운영에서는 담당자가 이 분석을 확인한 뒤 연결해요. AI는 추천만 해요.</span></div>' +
+      '<div class="store"><label for="store"><span class="ib">' + A.icon('store', 18) + '</span>가게 이름<em>선택</em></label>' +
+      '<input id="store" type="text" maxlength="30" autocomplete="off" enterkeyhint="done" placeholder="예: 조치원 ○○카페" value="' + C.esc(S.store) + '"' + (S.screen === 'done' ? ' disabled' : '') + '>' +
+      '<p>' + A.icon('check', 16) + '<span>학생 팀이 가게를 찾아갈 때만 써요. 앞 발표 화면에는 나오지 않아요.</span></p></div>';
+    var si = document.getElementById('store'); if (si) { si.oninput = function () { S.store = si.value; }; si.onkeydown = function (e) { if (e.key === 'Enter') si.blur(); }; }
     if (S.screen === 'result') { d.hidden = false; d.innerHTML = '<button class="btn" data-act="finish" id="fin">이 고민 제출하기 ' + A.icon('right', 22) + '</button>'; document.getElementById('fin').onclick = function () { save(); set({ screen: 'done' }); }; }
     if (S.screen === 'done') {
       var ov = document.createElement('div'); ov.className = 'done'; ov.setAttribute('role', 'status');
@@ -390,7 +402,7 @@ function alertBox() {
   document.body.appendChild(ov); document.getElementById('x').onclick = function () { ov.remove(); };
 }
 function save() {
-  try { var r = S.result, k = 'sls_submissions', list = JSON.parse(localStorage.getItem(k) || '[]'); list.push({ ts: Date.now(), industry: S.industry, area: S.area, state: S.state, type: r.top[0].id, needsAgency: r.needsAgency }); localStorage.setItem(k, JSON.stringify(list)); } catch (e) {}
+  try { var r = S.result, k = 'sls_submissions', list = JSON.parse(localStorage.getItem(k) || '[]'); list.push({ ts: Date.now(), storeName: (S.store || '').trim().slice(0, 30), industry: S.industry, area: S.area, state: S.state, type: r.top[0].id, needsAgency: r.needsAgency }); localStorage.setItem(k, JSON.stringify(list)); } catch (e) {}
 }
 function analyze() {
   set({ screen: 'analyzing' }); window.scrollTo(0, 0);

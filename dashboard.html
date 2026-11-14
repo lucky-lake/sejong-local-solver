@@ -13,16 +13,23 @@
 <body class="dash-body">
   <div class="wrap">
     <div class="head">
-      <div class="l"><span id="mascot"></span><div><h1 class="disp">오늘 들어온 가게 고민</h1><p>세종 로컬 해결소 · 기관 대시보드</p></div></div>
-      <div class="live" aria-live="polite">
-        <span class="pill offline" id="mode"><i></i><span id="mode-text">불러오는 중</span></span>
+      <div class="l"><span id="mascot"></span><div><h1 class="disp">오늘 들어온 가게 고민</h1><p>세종 로컬 해결소 · 기관 대시보드</p></div><div class="bub" id="bub" role="status" aria-live="polite"></div></div>
+      <div class="live">
+        <span class="pill offline" id="mode"><i></i><span id="mode-text" aria-live="polite">불러오는 중</span></span>
         <span class="pill dash" id="seed-tag">예시 데이터 포함</span>
+        <button class="bell" id="bell" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="npanel" aria-label="새 고민 알림"><span id="bell-ic"></span><span class="nb" id="nb" hidden>0</span></button>
+        <div class="npanel" id="npanel" role="dialog" aria-label="새 고민 알림함" hidden>
+          <div class="nph"><h2 class="disp">새 고민 알림</h2><div><button class="nbtn" id="n-all" type="button">모두 읽음</button><button class="nbtn x" id="n-close" type="button" aria-label="알림함 닫기"></button></div></div>
+          <div class="ntabs" id="ntabs"></div>
+          <ul class="nlist" id="nlist"></ul>
+          <div class="nfoot">누르면 그 고민이 표·막대에서 반짝여요</div>
+        </div>
       </div>
     </div>
     <div class="main">
       <div class="left">
         <div class="kpis">
-          <div class="kpi stk"><p><span class="ib" id="i1" style="background:#FFE9E2;color:#C9472A"></span>접수된 고민</p><b><span id="k-total">0</span><small>건</small></b></div>
+          <div class="kpi stk"><span class="plus" id="k-plus" hidden></span><p><span class="ib" id="i1" style="background:#FFE9E2;color:#C9472A"></span>접수된 고민</p><b><span id="k-total">0</span><small>건</small></b></div>
           <div class="kpi stk gov"><p><span class="ib" id="i2"></span>기관 연결 필요</p><b><span id="k-agency">0</span><small>건</small></b></div>
           <div class="kpi stk"><p><span class="ib" id="i3" style="background:#EEEAFE;color:#6A4DE8"></span>"뭐가 필요한지 몰라요"</p><b><span id="k-unknown">0</span><small>%</small></b></div>
         </div>
@@ -46,7 +53,7 @@
       </div>
     </div>
     <div class="keys">
-      <span>R 새로고침 · S 예시 데이터 켜기·끄기 · F 전체 화면 · <a href="index.html">1분 체험으로</a></span>
+      <span>R 새로고침 · S 예시 데이터 켜기·끄기 · N 알림함 · <span id="p-key">P 말풍선 끄기</span> · F 전체 화면 · <a href="index.html">1분 체험으로</a></span>
       <span class="admin" id="admin" hidden>
         <span id="admin-msg" aria-live="polite"></span>
         <button type="button" id="reset">시연 데이터 비우기</button>

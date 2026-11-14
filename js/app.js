@@ -1,7 +1,7 @@
 // 1분 체험: 라우팅, 화면 렌더링, 진행 상태.
 // 화면 구성·문구·상호작용은 확정 시안(design/prototype-index.html)을 따르고,
 // 분류는 classifier.js, 제출은 api.js(서버 연결 + 오프라인 대체)를 쓴다.
-import { analyze, buildSubmission, matchTeam, ringScore, MAX_TEXT_LENGTH } from './classifier.js';
+import { analyze, buildSubmission, matchTeam, ringScore, MAX_TEXT_LENGTH, MAX_STORE_LENGTH } from './classifier.js';
 import {
   submit,
   flushPending,
@@ -81,6 +81,7 @@ function emptyState() {
     concernState: null,
     symptom: null,
     text: '',
+    store: '',
     analysisShownFor: null,
     submittedId: null,
     submitStatus: null,
@@ -271,7 +272,7 @@ function renderLanding() {
     <h1 class="big disp" tabindex="-1">가게 고민,<br><span class="hl">학생 팀</span>이 해결해요</h1>
     <p class="lede">세종의 청년 사업가가 고민을 올리면 <span class="nw">인근 대학 학생 2~4명이</span> 가게를 찾아가 진단하고 해결해요.<br>학생은 우리 동네에서 첫 실무 경력을 쌓아요.</p>
     <a class="btn" href="${hashOf('industry')}">사장님이 되어 1분 체험 ${icon('right', 22)}</a>
-    <p class="fine">가게 이름·연락처 같은 개인정보는 받지 않아요</p>
+    <p class="fine">이름·연락처 같은 개인정보는 받지 않아요</p>
     <div class="more">
       <a class="wide" href="${hashOf('board')}">${icon('people', 18)}학생 과제 보드 보기</a>
       <a href="dashboard.html">${icon('hall', 18)}발표 화면 보기</a>
@@ -310,7 +311,7 @@ function renderStep(step) {
     html += `<h1 class="q disp" tabindex="-1">요즘 가장 아쉬운 건요?</h1><div class="grid">${SYMPTOMS.map((item) => tile('symptom', item)).join('')}</div>`;
   } else {
     html += `<div class="ask">${gomi('worry', 92)}<h1 class="bubble" tabindex="-1">어떤 고민이 있으세요?</h1></div>
-      <label for="txt" class="exh label">한두 문장으로 적어 주세요 (가게 이름·연락처는 빼고)</label>
+      <label for="txt" class="exh label">한두 문장으로 적어 주세요 (연락처는 빼고)</label>
       <textarea id="txt" maxlength="${MAX_TEXT_LENGTH}" placeholder="예: 손님이 줄었는데 이유를 모르겠어요">${esc(state.text)}</textarea>
       <p class="err" id="err" role="alert" hidden>고민을 적거나 아래 예시를 골라 주세요</p>
       <p class="exh">다른 사장님들은 이렇게 말해요</p>
@@ -436,6 +437,33 @@ function agencyCard(list) {
   </div>`;
 }
 
+// 가게 이름(선택): 두 경로(직접 적기·모르겠어요)가 모두 지나는 제출 버튼 바로 위에 둔다.
+// 시트에만 저장되고 발표 화면·집계·알림에는 나오지 않는다. 제출한 뒤에는 잠근다.
+function storeCard() {
+  const locked = Boolean(state.submittedId);
+  return `<div class="store">
+    <label for="store"><span class="ib">${icon('store', 18)}</span>가게 이름<em>선택</em></label>
+    <input id="store" type="text" maxlength="${MAX_STORE_LENGTH}" autocomplete="off" enterkeyhint="done" placeholder="예: 조치원 ○○카페" value="${esc(state.store)}"${locked ? ' disabled' : ''}>
+    <p>${icon('check', 16)}<span>학생 팀이 가게를 찾아갈 때만 써요. 앞 발표 화면에는 나오지 않아요.</span></p>
+  </div>`;
+}
+
+function bindStoreInput() {
+  const input = document.getElementById('store');
+  if (!input || input.disabled) return;
+  input.addEventListener('input', () => {
+    state.store = input.value;
+    saveState();
+  });
+  // 엔터는 키보드만 닫는다(바로 제출되지 않게).
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      input.blur();
+    }
+  });
+}
+
 function showResult(analysis) {
   const { classification, team } = analysis;
   const [first, second] = classification.top;
@@ -449,7 +477,9 @@ function showResult(analysis) {
     </div>
     ${team ? teamCard(team) : ''}
     ${agencyCard(analysis.agencies)}
-    <div class="human">${gomi('happy', 44)}<span class="human-text"><span>실제 운영에서는 담당자가 이&nbsp;분석을 확인한 뒤 연결해요.</span><span>AI는 추천만 해요.</span></span></div>`;
+    <div class="human">${gomi('happy', 44)}<span class="human-text"><span>실제 운영에서는 담당자가 이&nbsp;분석을 확인한 뒤 연결해요.</span><span>AI는 추천만 해요.</span></span></div>
+    ${storeCard()}`;
+  bindStoreInput();
 
   if (state.submittedId) {
     showDock(`<button type="button" class="btn white" id="again">처음부터 다시 ${icon('left', 20)}</button>`);
@@ -459,7 +489,7 @@ function showResult(analysis) {
   showDock(`<button type="button" class="btn" id="fin">이 고민 제출하기 ${icon('right', 22)}</button>`);
   document.getElementById('fin').addEventListener('click', () => {
     const id = newId();
-    const record = buildSubmission(currentInput(), analysis, { id, ts: new Date().toISOString() });
+    const record = buildSubmission(currentInput(), analysis, { id, ts: new Date().toISOString(), storeName: state.store });
     state.submittedId = id;
     state.submitStatus = remainingSubmissions() > 0 ? 'sending' : 'limit';
     saveState();
