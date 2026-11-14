@@ -205,6 +205,18 @@ textarea::placeholder { color: #7B8190; }
 .choice:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--yel), 1px 1px 0 2px var(--ink); }
 .choice b { font-family: var(--disp); font-weight: 400; font-size: 21px; }
 .choice small { font-size: 14px; color: var(--mut); }
+/* 지원 인원 고르기: 1명(혼자)부터 추천 최대 인원까지 */
+.sizes { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 360px; margin: -8px 0 10px; }
+.size { appearance: none; min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 2px; border: 2px solid var(--ink); border-radius: 14px; background: #fff; color: var(--ink); box-shadow: 3px 3px 0 var(--ink); transition: transform .08s, box-shadow .08s, background .15s; }
+.size b { font-family: var(--disp); font-weight: 400; font-size: 20px; line-height: 1.1; white-space: nowrap; }
+.size small { font-size: 12px; font-weight: 800; color: var(--pur); }
+.size[aria-pressed="true"] { background: var(--yel); transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+.done .size-hint { font-size: 14px; line-height: 1.5; margin: 0 0 16px; opacity: .9; word-break: keep-all; }
+.done.team h2 { font-size: 34px; }
+/* 내용이 화면보다 길면 위에서부터 스크롤, 짧으면 가운데 */
+.done.team { justify-content: flex-start; overflow-y: auto; }
+.done.team > :first-child { margin-top: auto; }
+.done.team > :last-child { margin-bottom: auto; }
 /* 팀 지원: 빈자리(점선)가 차례로 채워진다 */
 .done.team { background: var(--pur); }
 .seats { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 6px 0 18px; }

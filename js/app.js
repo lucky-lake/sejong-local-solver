@@ -1,7 +1,7 @@
 // 1분 체험: 라우팅, 화면 렌더링, 진행 상태.
 // 화면 구성·문구·상호작용은 확정 시안(design/prototype-index.html)을 따르고,
 // 분류는 classifier.js, 제출은 api.js(서버 연결 + 오프라인 대체)를 쓴다.
-import { analyze, buildSubmission, matchTeam, ringScore, MAX_TEXT_LENGTH, MAX_STORE_LENGTH } from './classifier.js';
+import { analyze, buildSubmission, matchTeam, ringScore, teamRange, MAX_TEXT_LENGTH, MAX_STORE_LENGTH } from './classifier.js';
 import {
   submit,
   flushPending,
@@ -414,15 +414,20 @@ function ring(score) {
 function memberAvatars(team) {
   return team.members.map((member) => {
     const [color, short] = MAJOR_BADGE[member.major];
-    return `<span class="av"><i style="background:${color}">${short}</i>${esc(member.major)}${member.count > 1 ? ` ${member.count}명` : ''}</span>`;
+    return `<span class="av"><i style="background:${color}">${short}</i>${esc(member.major)}</span>`;
   }).join('');
 }
 
-function teamCard(team) {
+// 추천 인원은 고민 상태로 정한다(classifier.js teamRange).
+function rangeText({ min, max }) {
+  return `${min}~${max}명`;
+}
+
+function teamCard(team, range) {
   const { heading, line, ours, oursNote } = config.costs;
   const avatars = memberAvatars(team);
   return `<div class="card">
-    <div class="h stu"><span class="ib" style="color:#6A4DE8">${icon('people', 20)}</span>추천 학생 팀<span class="r">${team.size}명 · ${esc(team.period)}</span></div>
+    <div class="h stu"><span class="ib" style="color:#6A4DE8">${icon('people', 20)}</span>추천 학생 팀<span class="r">${rangeText(range)} · ${esc(team.period)}</span></div>
     <div class="b">
       <div class="avatars">${avatars}</div>
       <div class="todo">${team.tasks.map((task) => `<div>${icon('check', 18)}<span>${keepParens(task)}</span></div>`).join('')}</div>
@@ -475,7 +480,7 @@ function showResult(analysis) {
       ${second ? `<div class="alt"><span>다음으로 가까운 유형<b>${esc(categoryName(second.id))}</b></span><span class="nw">관련도 ${ringScore(second.score)}</span></div>` : ''}
       <div class="why" aria-label="찾은 키워드">${whyTags(classification).map((tag) => `<span>#${esc(tag)}</span>`).join('')}</div>
     </div>
-    ${team ? teamCard(team) : ''}
+    ${team ? teamCard(team, teamRange(state.concernState)) : ''}
     ${agencyCard(analysis.agencies)}
     <div class="human">${gomi('happy', 44)}<span class="human-text"><span>실제 운영에서는 담당자가 이&nbsp;분석을 확인한 뒤 연결해요.</span><span>AI는 추천만 해요.</span></span></div>
     ${storeCard()}`;
@@ -645,6 +650,7 @@ function toTask(key, source, item, categoryIds) {
     categoryId: (studentPart ?? known[0])?.id ?? null,
     alsoAgency: Boolean(studentPart) && known.some((category) => category.agencyOnly),
     team: known.length ? matchTeam({ top: known.map(({ id }) => ({ id })) }, config) : null,
+    range: teamRange(item.concernState),
   };
 }
 
@@ -698,15 +704,15 @@ function renderMajorPicker() {
 }
 
 function applyButton(task) {
-  const mode = appliedTasks.get(task.key);
-  if (!mode) {
+  const applied = appliedTasks.get(task.key);
+  if (!applied) {
     return `<button type="button" class="btn pur sm" data-apply="${esc(task.key)}">지원하기 ${icon('right', 20)}</button>`;
   }
   // 지원한 카드는 한 번 누르면 빨간 확인 버튼으로 바뀌고, 3초 안에 한 번 더 누르면 취소된다.
   if (cancelArmed === task.key) {
     return `<button type="button" class="btn red sm" data-cancel="${esc(task.key)}">지원 취소할까요?</button>`;
   }
-  return `<button type="button" class="btn white sm" data-arm="${esc(task.key)}">${mode === 'team' ? '팀으로' : '혼자'} 지원했어요 ${icon('check', 20)}</button>`;
+  return `<button type="button" class="btn white sm" data-arm="${esc(task.key)}">${applied.size === 1 ? '혼자' : `${applied.size}명 팀으로`} 지원했어요 ${icon('check', 20)}</button>`;
 }
 
 function taskCard(task) {
@@ -720,7 +726,7 @@ function taskCard(task) {
       <span class="rtype">${esc(categoryName(task.categoryId))}</span>${fitsMe(task) ? '<span class="fit">내 전공 추천</span>' : ''}
       ${task.alsoAgency ? `<p class="also">${icon('hall', 16)}자금·세무는 기관으로 연결돼요</p>` : ''}
       <div class="todo">${task.team.tasks.map((item) => `<div>${icon('check', 18)}<span>${keepParens(item)}</span></div>`).join('')}</div>
-      <div class="task-meta"><div class="avatars">${memberAvatars(task.team)}</div><span class="nw">추천 ${task.team.size}명 · ${esc(task.team.period)}</span></div>
+      <div class="task-meta"><div class="avatars">${memberAvatars(task.team)}</div><span class="nw">추천 ${rangeText(task.range)} · ${esc(task.team.period)}</span></div>
       ${applyButton(task)}
     </div>
   </article>`;
@@ -830,62 +836,91 @@ function renderBoard() {
   refreshBoard(gen);
 }
 
-// 지원하기 → 혼자/팀 고르기 → 자리 채우기
+// 지원하기 → 인원 고르기(1명~추천 최대) → 혼자 / 학생 찾기 / 친구와 함께 → 자리 채우기
+const ANY_MAJOR = '전공 무관';
+
+function applyChoices(size) {
+  if (size === 1) {
+    return '<button type="button" class="choice" data-mode="solo"><b>혼자 지원하기</b><small>과제를 혼자 맡아서 해요</small></button>';
+  }
+  return `<button type="button" class="choice" data-mode="match"><b>맞는 학생 찾아 주세요</b><small>추천 전공 학생과 ${size}명 팀을 맺어요</small></button>
+    <button type="button" class="choice" data-mode="friends"><b>같이 할 친구가 있어요</b><small>친구 ${size - 1}명을 초대해요</small></button>`;
+}
+
 function showApply(task) {
   const info = industryInfo(task.industry);
+  const { min, max } = task.range;
+  const sizes = Array.from({ length: max }, (_, i) => i + 1);
+  let size = min;
   const element = overlay('done team', 'dialog', '과제 지원');
   element.setAttribute('aria-modal', 'true');
-  element.innerHTML = `${gomi('happy', 96)}
-    <h2 class="disp" tabindex="-1">어떻게 지원할까요?</h2>
+  element.innerHTML = `${gomi('happy', 72)}
+    <h2 class="disp" tabindex="-1">몇 명이서 할까요?</h2>
     <p>${esc(info.label)} · ${esc(task.area)} · ${esc(categoryName(task.categoryId))}</p>
     ${hasMajor() && !fitsMe(task) ? '<p class="status">추천 전공은 아니지만 지원할 수 있어요</p>' : ''}
-    <div class="row">
-      <button type="button" class="choice" data-mode="solo"><b>혼자 지원</b><small>맞는 학생과 팀을 맺어 드려요</small></button>
-      <button type="button" class="choice" data-mode="team"><b>팀으로 지원</b><small>함께할 친구가 있어요</small></button>
-      <button type="button" class="link" id="team-close">보드로 돌아가기</button>
-    </div>`;
-  element.querySelectorAll('[data-mode]').forEach((button) => {
-    button.addEventListener('click', () => runApply(element, task, button.dataset.mode));
+    <div class="sizes" role="group" aria-label="팀 인원" style="--n:${max}">${sizes.map((n) => `<button type="button" class="size" data-size="${n}" aria-pressed="${n === size}"><b>${n === 1 ? '혼자' : `${n}명`}</b>${n >= min ? '<small>추천</small>' : ''}</button>`).join('')}</div>
+    <p class="size-hint">추천은 ${rangeText(task.range)}이에요. 혼자도 지원할 수 있어요.</p>
+    <div class="row" id="apply-choices">${applyChoices(size)}</div>
+    <div class="row"><button type="button" class="link" id="team-close">보드로 돌아가기</button></div>`;
+
+  const bindChoices = () => {
+    element.querySelectorAll('[data-mode]').forEach((button) => {
+      button.addEventListener('click', () => runApply(element, task, size, button.dataset.mode));
+    });
+  };
+  element.querySelectorAll('[data-size]').forEach((button) => {
+    button.addEventListener('click', () => {
+      size = Number(button.dataset.size);
+      element.querySelectorAll('[data-size]').forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+      element.querySelector('#apply-choices').innerHTML = applyChoices(size);
+      bindChoices();
+    });
   });
+  bindChoices();
   element.querySelector('#team-close').addEventListener('click', closeApply);
   element.querySelector('h2').focus({ preventScroll: true });
 }
 
-function runApply(element, task, mode) {
+function runApply(element, task, size, mode) {
   const recommended = task.team.members.flatMap((member) => Array(member.count).fill(member.major));
-  // 내 전공이 추천에 있으면 그 자리를 내가 맡고, 없으면 추천 자리는 그대로 두고 내가 한 자리 더한다.
-  // 전공을 고르지 않았으면 첫 추천 자리를 내가 맡는다.
+  // 내 전공이 추천에 있으면 그 자리를 내가 맡고, 전공을 고르지 않았으면 첫 추천 자리를 내가 맡는다.
+  // 고른 인원이 추천 전공보다 많으면 남는 자리는 '전공 무관'이다.
   const mine = hasMajor() ? myMajor : null;
   const others = [...recommended];
   if (!mine) others.shift();
   else if (others.includes(mine)) others.splice(others.indexOf(mine), 1);
-  const seats = [{ me: true, major: mine }, ...others.map((major) => ({ major }))].slice(0, 4);
-  const solo = mode === 'solo';
-  appliedTasks.set(task.key, mode);
+  while (others.length < size - 1) others.push(ANY_MAJOR);
+  const seats = [{ me: true, major: mine }, ...others.slice(0, size - 1).map((major) => ({ major }))];
+  const friends = mode === 'friends';
+  appliedTasks.set(task.key, { size, mode });
 
   const seatHtml = (seat) => {
     if (seat.me) return `<span class="seat me"><i>나</i><small>${esc(seat.major ?? '전공 미정')}</small></span>`;
-    if (!solo) return `<span class="seat invite"><i>+</i><small>${esc(seat.major)}</small></span>`;
-    const [color, short] = MAJOR_BADGE[seat.major];
+    if (friends) return `<span class="seat invite"><i>+</i><small>${esc(seat.major)}</small></span>`;
+    const [color, short] = MAJOR_BADGE[seat.major] ?? ['#5B6170', '무관'];
     return `<span class="seat"><i style="--c:${color}">${short}</i><small>${esc(seat.major)}</small></span>`;
   };
+  const title = { solo: '혼자 지원했어요!', match: '맞는 학생을 찾는 중이에요', friends: `${size}명 팀으로 지원했어요!` }[mode];
+  const message = {
+    solo: '사장님과 담당자가 확인하면 과제가 정해져요.',
+    match: `추천 전공 학생과 ${size}명 팀을 맺어요`,
+    friends: '실제 서비스에서는 여기서 팀 소개를 적고<br>팀원에게 초대 링크를 보내요',
+  }[mode];
   element.innerHTML = `${gomi('happy', 96)}
-    <h2 class="disp" tabindex="-1" id="team-title">${solo ? '맞는 학생을 찾는 중이에요' : '팀으로 지원했어요!'}</h2>
+    <h2 class="disp" tabindex="-1" id="team-title">${title}</h2>
     <div class="seats">${seats.map(seatHtml).join('')}</div>
-    <p id="team-msg">${solo
-      ? `추천 전공 학생과 ${seats.length}명 팀을 맺어요`
-      : '실제 서비스에서는 여기서 팀 소개를 적고<br>팀원에게 초대 링크를 보내요'}</p>
+    <p id="team-msg">${message}</p>
     <p class="status" id="team-note" hidden>시연이라 실제로 지원되지는 않아요</p>
     <div class="row"><button type="button" class="btn white" id="team-close">보드로 돌아가기</button></div>`;
   element.querySelector('#team-close').addEventListener('click', closeApply);
   element.querySelector('h2').focus({ preventScroll: true });
 
-  const filling = [...element.querySelectorAll(solo ? '.seat' : '.seat.me')];
+  const filling = [...element.querySelectorAll(friends ? '.seat.me' : '.seat')];
   filling.forEach((seat, i) => later(() => seat.classList.add('on'), SEAT_MS * (i + 1)));
   later(() => {
-    if (solo) {
-      element.querySelector('#team-title').textContent = '팀이 꾸려졌어요!';
-      element.querySelector('#team-msg').innerHTML = '사장님과 담당자가 확인하면 팀이 정해져요.<br>활동이 끝나면 확인서와 포트폴리오를 받아요.';
+    if (mode === 'match') element.querySelector('#team-title').textContent = '팀이 꾸려졌어요!';
+    if (mode !== 'friends') {
+      element.querySelector('#team-msg').innerHTML = '사장님과 담당자가 확인하면 정해져요.<br>활동이 끝나면 확인서와 포트폴리오를 받아요.';
     }
     element.querySelector('#team-note').hidden = false;
   }, SEAT_MS * (filling.length + 1));

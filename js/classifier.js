@@ -4,6 +4,15 @@
 export const MAX_TEXT_LENGTH = 200;
 export const MAX_STORE_LENGTH = 30;
 
+// 추천 학생 팀 인원(11/14). 사장님이 고른 고민 상태가 막연할수록 사람을 더 붙인다.
+// 학생은 지원할 때 1명(혼자)부터 범위의 최대 인원까지 고를 수 있다. 상태가 없으면 '방향만 있어요'로 본다.
+export const TEAM_RANGE = { known: [2, 3], direction: [2, 4], unknown: [3, 5] };
+
+export function teamRange(concernState) {
+  const [min, max] = TEAM_RANGE[concernState] ?? TEAM_RANGE.direction;
+  return { min, max };
+}
+
 const DEFAULT_CATEGORY_ID = 'customer';
 const AGENCY_CATEGORY_ID = 'funding';
 const SUPPORT_QUESTION_INDEX = 3;
@@ -117,7 +126,8 @@ export function classify(input, config) {
   };
 }
 
-// 학생 팀은 2~4명. 1위 유형의 전공을 기본으로, 2위 유형의 대표 전공을 더한다.
+// 추천 전공 구성. 1위 유형의 전공을 기본으로, 2위 유형의 대표 전공을 더한다.
+// 화면의 추천 인원은 이 수가 아니라 teamRange(고민 상태)로 보여 준다.
 export function matchTeam(classification, config) {
   const chosen = classification.top
     .map((item) => config.categories.find((category) => category.id === item.id))
