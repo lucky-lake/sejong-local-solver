@@ -150,13 +150,24 @@ textarea::placeholder { color: #7B8190; }
 .badge { display: inline-block; font-size: 13px; font-weight: 700; color: var(--mut); margin: 0 0 10px; }
 /* 가게 이름(선택) — 노란 스티커 카드. 글자 17px 이상이어야 아이폰이 입력할 때 화면을 확대하지 않는다. */
 .store { margin-top: 14px; border: 2px solid var(--ink); border-radius: 18px; background: var(--yel); box-shadow: 4px 4px 0 var(--ink); padding: 14px; }
-.store label { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; margin: 0 0 8px; }
-.store label .ib { width: 32px; height: 32px; border-radius: 10px; border: 2px solid var(--ink); background: #fff; display: flex; align-items: center; justify-content: center; color: var(--coral); }
-.store label em { font-style: normal; font-size: 14px; font-weight: 700; color: #5A4A00; background: #FFF3B8; border: 2px solid var(--ink); border-radius: 999px; padding: 1px 9px; }
-.store input { width: 100%; min-height: 52px; border: 2px solid var(--ink); border-radius: 14px; padding: 0 14px; font: inherit; font-size: 17px; background: #fff; color: var(--ink); }
+.store .store-h { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; margin: 0 0 4px; color: var(--ink); }
+.store label { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; margin: 12px 0 6px; }
+.store .store-h .ib { width: 32px; height: 32px; border-radius: 10px; border: 2px solid var(--ink); background: #fff; display: flex; align-items: center; justify-content: center; color: var(--coral); }
+.store em { font-style: normal; font-size: 14px; font-weight: 700; color: #5A4A00; background: #FFF3B8; border: 2px solid var(--ink); border-radius: 999px; padding: 1px 9px; }
+.store em.req { color: #fff; background: var(--coral); }
+.store input[type="text"], .store input[type="tel"] { width: 100%; min-height: 52px; border: 2px solid var(--ink); border-radius: 14px; padding: 0 14px; font: inherit; font-size: 17px; background: #fff; color: var(--ink); }
 .store input::placeholder { color: #7B8190; }
 .store input:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 .store input:disabled { background: #FFF8D6; color: var(--mut); }
+.store input.bad { border-color: #B42318; box-shadow: 0 0 0 2px #B42318; }
+.store .store-note { display: block; margin: 6px 0 0; font-size: 13px; font-weight: 700; color: #5A4A00; }
+.store label.agree { align-items: flex-start; gap: 10px; margin: 14px 0 0; padding: 10px 12px; min-height: 52px; background: #fff; border: 2px solid var(--ink); border-radius: 14px; font-size: 14px; line-height: 1.45; font-weight: 700; cursor: pointer; }
+.store label.agree input { flex-shrink: 0; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--teal); }
+.store label.agree span { flex: 1; word-break: keep-all; }
+.store label.agree em { flex-shrink: 0; margin-top: 1px; }
+.store label.agree.bad { border-color: #B42318; box-shadow: 0 0 0 2px #B42318; }
+.store .store-err { color: #B42318; margin: 8px 0 0; }
+.store .store-err:empty { display: none; }
 .store p { word-break: keep-all; margin: 8px 0 0; font-size: 14px; line-height: 1.5; font-weight: 700; color: #4A3F00; display: flex; gap: 6px; align-items: flex-start; }
 .store p .ic { margin-top: 2px; }
 
@@ -186,6 +197,19 @@ textarea::placeholder { color: #7B8190; }
 .mymajor { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; font-size: 15px; }
 .mymajor b { color: var(--pur); }
 .mymajor button { appearance: none; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; font-size: 14px; font-weight: 700; }
+.fit.like { background: var(--yel); color: var(--ink); }
+.mymajor small { display: block; font-size: 13px; color: var(--mut); font-weight: 700; margin-top: 2px; }
+/* 학생 보드 첫 화면: 학년(하나)·전공(하나)·선호 유형(여러 개) */
+.pick-h { font-size: 16px; font-weight: 800; margin: 20px 0 8px; }
+.pick-h small { font-size: 13px; color: var(--mut); font-weight: 700; margin-left: 4px; }
+.picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.picks.four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pick { appearance: none; min-height: 48px; padding: 0 14px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; color: var(--ink); font: inherit; font-size: 15px; font-weight: 800; box-shadow: 2px 2px 0 var(--ink); white-space: nowrap; transition: transform .08s, box-shadow .08s, background .12s; }
+.picks.four .pick { padding: 0 4px; }
+.pick[aria-pressed="true"] { background: var(--pur); color: #fff; transform: translate(2px,2px); box-shadow: 0 0 0 var(--ink); }
+.pick-err { color: #B42318; font-size: 15px; font-weight: 800; margin: 14px 0 0; }
+.pick-err:empty { display: none; }
+.link-btn { appearance: none; display: block; margin: 18px auto 0; min-height: 44px; padding: 0 12px; background: none; border: 0; color: var(--mut); font: inherit; font-size: 15px; font-weight: 700; text-decoration: underline; }
 .fit { display: inline-block; margin-left: 6px; font-size: 12px; font-weight: 800; color: #fff; background: var(--pur); border: 2px solid var(--ink); border-radius: 999px; padding: 3px 8px; vertical-align: top; }
 .major-ib { color: #fff; font-size: 15px; font-weight: 800; }
 .board-status { font-size: 13px; font-weight: 700; color: var(--mut); margin: 0 0 12px; }
@@ -225,7 +249,7 @@ textarea::placeholder { color: #7B8190; }
 .seat.on i { background: #fff; color: var(--c); border: 2px solid var(--ink); animation: pop .3s ease-out; }
 .seat.me.on i { background: var(--yel); color: var(--ink); }
 .seat.invite i { color: #fff; font-size: 26px; font-weight: 400; }
-.seat small { font-size: 13px; font-weight: 700; }
+.seat small { font-size: 13px; font-weight: 700; line-height: 1.35; text-align: center; }
 @keyframes pop { 0% { transform: scale(.6); } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {

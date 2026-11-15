@@ -44,6 +44,13 @@ export function clearLocalSubmissions() {
   writeList(PENDING_KEY, []);
 }
 
+// 전화번호는 서버에 보낸 뒤에는 이 기기에 남기지 않는다(대시보드 오프라인 모드는 번호를 쓰지 않는다).
+function forgetPhone(id) {
+  writeList(LOG_KEY, getLocalSubmissions().map((item) => (
+    item.id === id && item.phone ? { ...item, phone: '' } : item
+  )));
+}
+
 export function remainingSubmissions() {
   return Math.max(MAX_SUBMISSIONS_PER_DEVICE - getLocalSubmissions().length, 0);
 }
@@ -96,6 +103,7 @@ export function flushPending() {
       try {
         if (record) await post({ action: 'save', record });
         writeList(PENDING_KEY, readList(PENDING_KEY).filter((pendingId) => pendingId !== id));
+        forgetPhone(id);
         sent += 1;
       } catch {
         scheduleRetry();
@@ -113,18 +121,41 @@ export function flushPending() {
 export async function submit(record) {
   if (remainingSubmissions() === 0) return { ok: false, mode: 'limit' };
 
-  writeList(LOG_KEY, [...getLocalSubmissions(), record]);
+  // 서버가 없으면 보낼 일이 없으니 번호는 처음부터 기기에 남기지 않는다.
+  writeList(LOG_KEY, [...getLocalSubmissions(), isConfigured() ? record : { ...record, phone: '' }]);
   if (!isConfigured()) return { ok: true, mode: 'offline' };
 
   writeList(PENDING_KEY, [...readList(PENDING_KEY), record.id]);
   try {
     await post({ action: 'save', record });
     writeList(PENDING_KEY, readList(PENDING_KEY).filter((id) => id !== record.id));
+    forgetPhone(record.id);
     flushPending();
     return { ok: true, mode: 'online' };
   } catch {
     scheduleRetry();
     return { ok: true, mode: 'offline' };
+  }
+}
+
+// 학생 지원·취소 기록. 시연용이라 실패해도 다시 보내지 않고 화면 흐름은 그대로 간다.
+export async function sendApplication(record) {
+  if (!isConfigured()) return { ok: false, mode: 'offline' };
+  try {
+    await post({ action: 'apply', record });
+    return { ok: true, mode: 'online' };
+  } catch {
+    return { ok: false, mode: 'offline' };
+  }
+}
+
+export async function sendCancel(id) {
+  if (!isConfigured()) return { ok: false, mode: 'offline' };
+  try {
+    await post({ action: 'cancel', id });
+    return { ok: true, mode: 'online' };
+  } catch {
+    return { ok: false, mode: 'offline' };
   }
 }
 

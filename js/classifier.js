@@ -3,6 +3,13 @@
 
 export const MAX_TEXT_LENGTH = 200;
 export const MAX_STORE_LENGTH = 30;
+export const MAX_LOCATION_LENGTH = 30;
+
+// 전화번호: 숫자만 남겨 0으로 시작하는 9~11자리일 때만 쓴다(02-123-4567, 010-1234-5678 등). 아니면 빈 값.
+export function normalizePhone(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return /^0\d{8,10}$/.test(digits) ? digits : '';
+}
 
 // 추천 학생 팀 인원(11/14). 사장님이 고른 고민 상태가 막연할수록 사람을 더 붙인다.
 // 학생은 지원할 때 1명(혼자)부터 범위의 최대 인원까지 고를 수 있다. 상태가 없으면 '방향만 있어요'로 본다.
@@ -177,12 +184,18 @@ export function analyze(input, config, agencies) {
 }
 
 // 저장 형식은 SPEC 3-3을 따른다. 시각·id는 호출하는 쪽에서 넣어 순수 함수로 유지한다.
-// 가게 이름(선택)은 시트에만 저장되고 집계·대시보드·알림에는 쓰지 않는다.
-export function buildSubmission(input, analysis, { id, ts, source = 'live', storeName = '' }) {
+// 가게 이름·위치(선택)는 발표 화면 알림에도 쓰인다. 전화번호는 동의했을 때만 넣고 시트에만 저장된다.
+export function buildSubmission(input, analysis, {
+  id, ts, source = 'live', storeName = '', location = '', phone = '', contactConsent = false,
+}) {
+  const consented = contactConsent === true && Boolean(normalizePhone(phone));
   return {
     id,
     ts,
     storeName: String(storeName ?? '').trim().slice(0, MAX_STORE_LENGTH),
+    location: String(location ?? '').trim().slice(0, MAX_LOCATION_LENGTH),
+    phone: consented ? normalizePhone(phone) : '',
+    contactConsent: consented,
     industry: input.industry,
     area: input.area,
     dong: input.dong || null,

@@ -1,9 +1,14 @@
 // 1분 체험: 라우팅, 화면 렌더링, 진행 상태.
 // 화면 구성·문구·상호작용은 확정 시안(design/prototype-index.html)을 따르고,
 // 분류는 classifier.js, 제출은 api.js(서버 연결 + 오프라인 대체)를 쓴다.
-import { analyze, buildSubmission, matchTeam, ringScore, teamRange, MAX_TEXT_LENGTH, MAX_STORE_LENGTH } from './classifier.js';
+import {
+  analyze, buildSubmission, matchTeam, normalizePhone, ringScore, teamRange,
+  MAX_TEXT_LENGTH, MAX_STORE_LENGTH, MAX_LOCATION_LENGTH,
+} from './classifier.js';
 import {
   submit,
+  sendApplication,
+  sendCancel,
   flushPending,
   fetchSummary,
   getLocalSubmissions,
@@ -69,7 +74,7 @@ let state = loadState();
 let seedItems = null;
 let liveRecent = null;
 let liveFailed = false;
-let myMajor;
+let profile; // 학생 보드: undefined(아직 안 읽음) · null(안 고름) · { grade, major, prefs, skip }
 let cancelArmed = null;
 let boardGen = 0;
 const appliedTasks = new Map();
@@ -82,6 +87,9 @@ function emptyState() {
     symptom: null,
     text: '',
     store: '',
+    location: '',
+    phone: '',
+    consent: false,
     analysisShownFor: null,
     submittedId: null,
     submitStatus: null,
@@ -272,7 +280,7 @@ function renderLanding() {
     <h1 class="big disp" tabindex="-1">가게 고민,<br><span class="hl">학생 팀</span>이 해결해요</h1>
     <p class="lede">세종의 청년 사업가가 고민을 올리면 <span class="nw">인근 대학 학생 2~4명이</span> 가게를 찾아가 진단하고 해결해요.<br>학생은 우리 동네에서 첫 실무 경력을 쌓아요.</p>
     <a class="btn" href="${hashOf('industry')}">사장님이 되어 1분 체험 ${icon('right', 22)}</a>
-    <p class="fine">이름·연락처 같은 개인정보는 받지 않아요</p>
+    <p class="fine">이름은 받지 않아요. 전화번호는 연락에만 쓰고 발표 후 지워요</p>
     <div class="more">
       <a class="wide" href="${hashOf('board')}">${icon('people', 18)}학생 과제 보드 보기</a>
       <a href="dashboard.html">${icon('hall', 18)}발표 화면 보기</a>
@@ -442,31 +450,76 @@ function agencyCard(list) {
   </div>`;
 }
 
-// 가게 이름(선택): 두 경로(직접 적기·모르겠어요)가 모두 지나는 제출 버튼 바로 위에 둔다.
-// 시트에만 저장되고 발표 화면·집계·알림에는 나오지 않는다. 제출한 뒤에는 잠근다.
+// 가게 정보: 두 경로(직접 적기·모르겠어요)가 모두 지나는 제출 버튼 바로 위에 둔다.
+// 가게 이름·위치(선택)는 발표 화면 알림에도 나온다. 전화번호(필수)와 연락 동의는 시트에만 남고
+// 발표 화면·집계·알림·과제 보드 어디에도 나오지 않는다. 제출한 뒤에는 잠근다.
+const CONTACT_FIELDS = ['store', 'loc', 'tel'];
+
 function storeCard() {
-  const locked = Boolean(state.submittedId);
-  return `<div class="store">
-    <label for="store"><span class="ib">${icon('store', 18)}</span>가게 이름<em>선택</em></label>
-    <input id="store" type="text" maxlength="${MAX_STORE_LENGTH}" autocomplete="off" enterkeyhint="done" placeholder="예: 조치원 ○○카페" value="${esc(state.store)}"${locked ? ' disabled' : ''}>
-    <p>${icon('check', 16)}<span>학생 팀이 가게를 찾아갈 때만 써요. 앞 발표 화면에는 나오지 않아요.</span></p>
+  const off = state.submittedId ? ' disabled' : '';
+  return `<div class="store" id="store-card">
+    <p class="store-h"><span class="ib">${icon('store', 18)}</span>가게 정보</p>
+    <label for="store">가게 이름<em>선택</em></label>
+    <input id="store" type="text" maxlength="${MAX_STORE_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원 ○○카페" value="${esc(state.store)}"${off}>
+    <label for="loc">위치<em>선택</em></label>
+    <input id="loc" type="text" maxlength="${MAX_LOCATION_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원역 앞, ○○길 12" value="${esc(state.location)}"${off}>
+    <label for="tel">전화번호<em class="req">필수</em></label>
+    <input id="tel" type="tel" inputmode="tel" maxlength="13" autocomplete="off" enterkeyhint="done" placeholder="010-0000-0000" value="${esc(state.phone)}" aria-describedby="tel-note"${off}>
+    <small class="store-note" id="tel-note">시연에서는 아무 번호나 넣어도 돼요</small>
+    <label class="agree" for="agree"><input type="checkbox" id="agree"${state.consent ? ' checked' : ''}${off}><span>연락 목적으로만 쓰고, 발표가 끝나면 지우는 데 동의해요</span><em class="req">필수</em></label>
+    <p class="store-err" id="store-err" role="alert"></p>
+    <p>${icon('check', 16)}<span>가게 이름·위치는 발표 화면 알림에 나와요. 전화번호는 담당자만 봐요.</span></p>
   </div>`;
 }
 
 function bindStoreInput() {
-  const input = document.getElementById('store');
-  if (!input || input.disabled) return;
-  input.addEventListener('input', () => {
-    state.store = input.value;
-    saveState();
-  });
-  // 엔터는 키보드만 닫는다(바로 제출되지 않게).
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
+  const card = document.getElementById('store-card');
+  if (!card || state.submittedId) return;
+  const keys = { store: 'store', loc: 'location', tel: 'phone' };
+  CONTACT_FIELDS.forEach((id, i) => {
+    const input = document.getElementById(id);
+    input.addEventListener('input', () => {
+      state[keys[id]] = input.value;
+      saveState();
+      clearStoreError();
+    });
+    // 엔터는 다음 칸으로 가거나 키보드만 닫는다(바로 제출되지 않게).
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
       event.preventDefault();
-      input.blur();
-    }
+      const next = document.getElementById(CONTACT_FIELDS[i + 1]);
+      if (next) next.focus();
+      else input.blur();
+    });
   });
+  document.getElementById('agree').addEventListener('change', (event) => {
+    state.consent = event.target.checked;
+    saveState();
+    clearStoreError();
+  });
+}
+
+// 제출 전에 전화번호와 동의를 확인한다. 문제가 있으면 [칸 id, 안내 문구]를 돌려준다.
+function contactProblem() {
+  if (!normalizePhone(state.phone)) {
+    return ['tel', state.phone.trim() ? '전화번호를 다시 확인해 주세요 (숫자 9~11자리)' : '전화번호를 적어 주세요'];
+  }
+  if (!state.consent) return ['agree', '연락 동의에 체크해 주세요'];
+  return null;
+}
+
+function showStoreError([field, message]) {
+  const target = document.getElementById(field);
+  document.getElementById('store-err').textContent = message;
+  (field === 'agree' ? target.closest('label') : target).classList.add('bad');
+  target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  target.focus({ preventScroll: true });
+}
+
+function clearStoreError() {
+  const error = document.getElementById('store-err');
+  if (error) error.textContent = '';
+  document.querySelectorAll('#store-card .bad').forEach((element) => element.classList.remove('bad'));
 }
 
 function showResult(analysis) {
@@ -493,8 +546,20 @@ function showResult(analysis) {
   }
   showDock(`<button type="button" class="btn" id="fin">이 고민 제출하기 ${icon('right', 22)}</button>`);
   document.getElementById('fin').addEventListener('click', () => {
+    const problem = contactProblem();
+    if (problem) {
+      showStoreError(problem);
+      return;
+    }
     const id = newId();
-    const record = buildSubmission(currentInput(), analysis, { id, ts: new Date().toISOString(), storeName: state.store });
+    const record = buildSubmission(currentInput(), analysis, {
+      id,
+      ts: new Date().toISOString(),
+      storeName: state.store,
+      location: state.location,
+      phone: state.phone,
+      contactConsent: state.consent,
+    });
     state.submittedId = id;
     state.submitStatus = remainingSubmissions() > 0 ? 'sending' : 'limit';
     saveState();
@@ -591,10 +656,10 @@ function restart() {
 
 // ---------- 학생 과제 보드 ----------
 // 사장님 고민(예시 + 방금 올라온 접수)을 학생 과제 카드로 보여 준다. 원문은 쓰지 않고 업종·지역·유형만 쓴다.
-// 처음 들어오면 전공을 고른다. 과제의 추천 전공은 배지와 순서로만 보여 주고, 맞지 않아도 지원할 수 있다.
-// 지원(혼자·팀)과 취소는 시연용이고 어디에도 저장하지 않는다.
-const MAJOR_KEY = 'sls.board.major.v1';
-const SKIP_MAJOR = 'skip';
+// 처음 들어오면 학년·전공·선호 과제 유형(여러 개)을 고른다. 추천 전공·선호 유형은 배지와 순서로만 보여 주고,
+// 맞지 않아도 지원할 수 있다. 지원·취소는 시트 '지원' 탭에 남는다(이름·연락처는 받지 않는다).
+const PROFILE_KEY = 'sls.board.profile.v1';
+const GRADES = ['1학년', '2학년', '3학년', '4학년'];
 const CANCEL_WAIT_MS = 3000;
 const MAJOR_HINTS = {
   '경영·사회': '경영·경제·사회과학 등',
@@ -602,24 +667,37 @@ const MAJOR_HINTS = {
   '디자인·예체능': '디자인·영상·미술 등',
 };
 
-function loadMajor() {
+function loadProfile() {
   try {
-    return sessionStorage.getItem(MAJOR_KEY);
+    const saved = JSON.parse(sessionStorage.getItem(PROFILE_KEY));
+    return saved && typeof saved === 'object' ? saved : null;
   } catch {
     return null;
   }
 }
 
-function saveMajor(value) {
+function saveProfile(value) {
   try {
-    sessionStorage.setItem(MAJOR_KEY, value);
+    sessionStorage.setItem(PROFILE_KEY, JSON.stringify(value));
   } catch {
     // 저장이 막혀도 이번 화면에서는 동작한다.
   }
 }
 
 function hasMajor() {
-  return MAJORS.includes(myMajor);
+  return MAJORS.includes(profile?.major);
+}
+
+function myPrefs() {
+  return Array.isArray(profile?.prefs) ? profile.prefs : [];
+}
+
+function studentCategories() {
+  return config.categories.filter((category) => !category.agencyOnly);
+}
+
+function shortName(id) {
+  return config.categories.find((category) => category.id === id)?.short ?? '';
 }
 
 function industryInfo(value) {
@@ -644,6 +722,7 @@ function toTask(key, source, item, categoryIds) {
   return {
     key,
     source,
+    taskId: String(item.id ?? 'unknown'),
     ts: item.ts,
     industry: item.industry,
     area: item.area,
@@ -657,7 +736,7 @@ function toTask(key, source, item, categoryIds) {
 // 서버에 연결되면 서버의 최근 접수, 아니면 이 기기에서 올린 접수를 쓴다(대시보드와 같은 규칙).
 function boardTasks() {
   const live = isConfigured() && liveRecent
-    ? liveRecent.map((item) => toTask(`live|${item.ts}|${item.category}|${item.area}`, 'live', item, [item.category]))
+    ? liveRecent.map((item) => toTask(`live|${item.id ?? item.ts}|${item.category}|${item.area}`, 'live', item, [item.category]))
     : getLocalSubmissions().slice().reverse()
       .map((item) => toTask(`device|${item.id}`, 'device', item, (item.categories ?? []).map((entry) => entry.id)));
   const seeds = (seedItems ?? [])
@@ -666,7 +745,11 @@ function boardTasks() {
 }
 
 function fitsMe(task) {
-  return hasMajor() && task.team.members.some((member) => member.major === myMajor);
+  return hasMajor() && task.team.members.some((member) => member.major === profile.major);
+}
+
+function likesIt(task) {
+  return myPrefs().includes(task.categoryId);
 }
 
 function boardHero() {
@@ -676,31 +759,86 @@ function boardHero() {
     </div>`;
 }
 
-function renderMajorPicker() {
-  const tiles = MAJORS.map((major) => {
+// 학년·전공·선호 과제 유형 고르기. 학년과 전공은 하나씩, 선호 유형은 여러 개(안 골라도 됨).
+function renderProfilePicker() {
+  const draft = {
+    grade: profile?.grade ?? '',
+    major: MAJORS.includes(profile?.major) ? profile.major : '',
+    prefs: [...myPrefs()],
+  };
+  const majorTiles = MAJORS.map((major) => {
     const [color, short] = MAJOR_BADGE[major];
-    return `<button type="button" class="tile${myMajor === major ? ' on' : ''}" data-pick="${esc(major)}" aria-pressed="${myMajor === major}">`
+    return `<button type="button" class="tile${draft.major === major ? ' on' : ''}" data-major="${esc(major)}" aria-pressed="${draft.major === major}">`
       + `<span class="ib major-ib" style="background:${color}">${short}</span>`
       + `<span><b>${esc(major)}</b><small>${esc(MAJOR_HINTS[major])}</small></span>`
       + `<span class="ok">${icon('check', 16)}</span></button>`;
   }).join('');
   app.innerHTML = `${boardHero()}
-    <h2 class="q disp">어떤 전공이에요?</h2>
-    <p class="exh label">고른 전공에 맞는 과제를 먼저 보여 드려요. 다른 과제도 지원할 수 있어요.</p>
-    <div class="list">${tiles}
-      <button type="button" class="tile${myMajor === SKIP_MAJOR ? ' on' : ''}" data-pick="${SKIP_MAJOR}"><span class="ib" style="background:#F5F7FA">${icon('dots', 26)}</span><span><b>건너뛰기</b><small>전공 상관없이 모두 볼게요</small></span><span class="ok">${icon('check', 16)}</span></button>
-    </div>`;
-  app.querySelectorAll('[data-pick]').forEach((button) => {
+    <h2 class="q disp">나를 알려 주세요</h2>
+    <p class="exh label">고른 전공과 선호 유형의 과제를 먼저 보여 드려요. 다른 과제도 지원할 수 있어요.</p>
+    <p class="pick-h" id="grade-h">학년</p>
+    <div class="picks four" role="group" aria-labelledby="grade-h">${GRADES.map((grade) =>
+      `<button type="button" class="pick" data-grade="${grade}" aria-pressed="${draft.grade === grade}">${grade}</button>`).join('')}</div>
+    <p class="pick-h" id="major-h">전공</p>
+    <div class="list" role="group" aria-labelledby="major-h">${majorTiles}</div>
+    <p class="pick-h" id="pref-h">선호 과제 유형 <small>여러 개 골라도 돼요</small></p>
+    <div class="picks" role="group" aria-labelledby="pref-h">${studentCategories().map((category) =>
+      `<button type="button" class="pick" data-pref="${category.id}" aria-pressed="${draft.prefs.includes(category.id)}">${esc(category.short)}</button>`).join('')}</div>
+    <p class="pick-err" id="pick-err" role="alert"></p>
+    <button type="button" class="link-btn" id="profile-skip">건너뛰고 둘러보기</button>`;
+
+  const error = document.getElementById('pick-err');
+  app.querySelectorAll('[data-grade]').forEach((button) => {
     button.addEventListener('click', () => {
-      myMajor = button.dataset.pick;
-      saveMajor(myMajor);
-      app.querySelectorAll('[data-pick]').forEach((other) => other.classList.toggle('on', other === button));
-      later(() => {
-        drawBoard();
-        window.scrollTo(0, 0);
-      }, AUTO_NEXT_MS);
+      draft.grade = button.dataset.grade;
+      app.querySelectorAll('[data-grade]').forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+      error.textContent = '';
     });
   });
+  app.querySelectorAll('[data-major]').forEach((button) => {
+    button.addEventListener('click', () => {
+      draft.major = button.dataset.major;
+      app.querySelectorAll('[data-major]').forEach((other) => {
+        other.classList.toggle('on', other === button);
+        other.setAttribute('aria-pressed', String(other === button));
+      });
+      error.textContent = '';
+    });
+  });
+  app.querySelectorAll('[data-pref]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.pref;
+      draft.prefs = draft.prefs.includes(id) ? draft.prefs.filter((item) => item !== id) : [...draft.prefs, id];
+      button.setAttribute('aria-pressed', String(draft.prefs.includes(id)));
+    });
+  });
+  const finish = (value) => {
+    profile = value;
+    saveProfile(value);
+    dock.hidden = true;
+    dock.innerHTML = '';
+    drawBoard();
+    window.scrollTo(0, 0);
+    app.querySelector('h1')?.focus({ preventScroll: true });
+  };
+  document.getElementById('profile-skip').addEventListener('click', () => finish({ skip: true, grade: '', major: '', prefs: [] }));
+  showDock(`<button type="button" class="btn pur" id="profile-done">과제 보러 가기 ${icon('right', 22)}</button>`);
+  document.getElementById('profile-done').addEventListener('click', () => {
+    if (!draft.grade || !draft.major) {
+      error.textContent = !draft.grade && !draft.major ? '학년과 전공을 골라 주세요' : `${draft.grade ? '전공' : '학년'}을 골라 주세요`;
+      (app.querySelector(draft.grade ? '[data-major]' : '[data-grade]'))?.focus();
+      return;
+    }
+    // 화면에 보이는 순서대로 저장한다.
+    const prefs = studentCategories().map((category) => category.id).filter((id) => draft.prefs.includes(id));
+    finish({ skip: false, grade: draft.grade, major: draft.major, prefs });
+  });
+}
+
+function profileLine() {
+  if (!profile || profile.skip || !hasMajor()) return '나를 알려 주지 않았어요';
+  const prefs = myPrefs().map(shortName).filter(Boolean);
+  return `나 <b>${esc(profile.grade)} · ${esc(profile.major)}</b>${prefs.length ? `<small>선호 ${esc(prefs.join(', '))}</small>` : ''}`;
 }
 
 function applyButton(task) {
@@ -720,10 +858,11 @@ function taskCard(task) {
   const when = task.source === 'seed'
     ? '<span class="when">예시</span>'
     : `<span class="when new">${task.source === 'device' ? '이 기기 · ' : ''}${esc(ago(task.ts))}</span>`;
+  const badges = `${fitsMe(task) ? '<span class="fit">내 전공 추천</span>' : ''}${likesIt(task) ? '<span class="fit like">선호 유형</span>' : ''}`;
   return `<article class="card task">
     <div class="h stu"><span class="ib" style="background:${info.bg}">${icon(info.icon, 20)}</span><span class="where">${esc(info.label)} · ${esc(task.area)}</span>${when}</div>
     <div class="b">
-      <span class="rtype">${esc(categoryName(task.categoryId))}</span>${fitsMe(task) ? '<span class="fit">내 전공 추천</span>' : ''}
+      <span class="rtype">${esc(categoryName(task.categoryId))}</span>${badges}
       ${task.alsoAgency ? `<p class="also">${icon('hall', 16)}자금·세무는 기관으로 연결돼요</p>` : ''}
       <div class="todo">${task.team.tasks.map((item) => `<div>${icon('check', 18)}<span>${keepParens(item)}</span></div>`).join('')}</div>
       <div class="task-meta"><div class="avatars">${memberAvatars(task.team)}</div><span class="nw">추천 ${rangeText(task.range)} · ${esc(task.team.period)}</span></div>
@@ -736,18 +875,22 @@ function drawBoard() {
   const all = boardTasks();
   const tasks = all.filter((task) => task.team).slice(0, BOARD_MAX);
   const agencyOnly = all.filter((task) => !task.team && task.categoryId).length;
-  // 내 전공 추천 과제를 먼저, 나머지는 그 아래에 그대로 둔다.
-  const ordered = [...tasks.filter(fitsMe), ...tasks.filter((task) => !fitsMe(task))];
+  // 내 전공 추천·선호 유형 과제를 먼저(둘 다 맞으면 맨 위), 나머지는 그 아래에 그대로 둔다.
+  const score = (task) => Number(fitsMe(task)) + Number(likesIt(task));
+  const ordered = tasks.map((task, i) => ({ task, i }))
+    .sort((a, b) => score(b.task) - score(a.task) || a.i - b.i)
+    .map(({ task }) => task);
   const liveCount = tasks.filter((task) => task.source !== 'seed').length;
   let status = `방금 들어온 과제 ${liveCount}건 · 예시 과제 ${tasks.length - liveCount}건`;
   if (!isConfigured()) status = '서버 연결 전이라 이 기기 접수와 예시 과제만 보여요';
   else if (liveFailed && !liveRecent) status = '서버에 연결하지 못해 예시 과제만 보여요';
   if (hasMajor()) status += ` · 내 전공 추천 ${tasks.filter(fitsMe).length}건`;
+  if (myPrefs().length) status += ` · 선호 유형 ${tasks.filter(likesIt).length}건`;
 
   app.innerHTML = `${boardHero()}
     <div class="mymajor">
-      <span>${hasMajor() ? `내 전공 <b>${esc(myMajor)}</b>` : '전공을 고르지 않았어요'}</span>
-      <button type="button" id="change-major">${icon('edit', 14)}${hasMajor() ? '바꾸기' : '고르기'}</button>
+      <span>${profileLine()}</span>
+      <button type="button" id="change-major">${icon('edit', 14)}${hasMajor() ? '바꾸기' : '알려 주기'}</button>
     </div>
     <p class="board-status" aria-live="polite">${esc(status)}</p>
     <div class="tasks">${ordered.map(taskCard).join('') || '<p class="loading">아직 올라온 과제가 없어요.</p>'}</div>
@@ -758,7 +901,7 @@ function drawBoard() {
     </div>`;
 
   document.getElementById('change-major').addEventListener('click', () => {
-    renderMajorPicker();
+    renderProfilePicker();
     window.scrollTo(0, 0);
   });
   app.querySelectorAll('[data-apply]').forEach((button) => {
@@ -781,6 +924,8 @@ function drawBoard() {
   });
   app.querySelectorAll('[data-cancel]').forEach((button) => {
     button.addEventListener('click', () => {
+      const applied = appliedTasks.get(button.dataset.cancel);
+      if (applied?.applyId) sendCancel(applied.applyId);
       appliedTasks.delete(button.dataset.cancel);
       cancelArmed = null;
       drawBoard();
@@ -789,11 +934,11 @@ function drawBoard() {
 }
 
 function showBoard() {
-  if (myMajor === null) renderMajorPicker();
+  if (profile === null) renderProfilePicker();
   else drawBoard();
 }
 
-// 청중이 질의응답 중에 올리는 고민도 카드로 보이게 10초마다 다시 받아 온다(전공을 고르는 중에는 화면을 건드리지 않는다).
+// 청중이 질의응답 중에 올리는 고민도 카드로 보이게 10초마다 다시 받아 온다(나를 고르는 중에는 화면을 건드리지 않는다).
 function refreshBoard(gen) {
   if (!isConfigured()) return;
   fetchSummary()
@@ -814,7 +959,7 @@ function refreshBoard(gen) {
 function renderBoard() {
   boardGen += 1;
   const gen = boardGen;
-  if (myMajor === undefined) myMajor = loadMajor();
+  if (profile === undefined) profile = loadProfile();
   cancelArmed = null;
   if (seedItems) {
     showBoard();
@@ -881,24 +1026,50 @@ function showApply(task) {
   element.querySelector('h2').focus({ preventScroll: true });
 }
 
+// 학생 찾기로 채운 자리의 학년은 시연용 예시다. 같은 과제는 늘 같은 학년이 나오게 과제 키로 정한다.
+function sampleGrade(seed) {
+  let hash = 0;
+  for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return GRADES[hash % GRADES.length];
+}
+
+function seatLabel(grade, major) {
+  return `<small>${grade ? `${esc(grade)}<br>` : ''}${esc(major)}</small>`;
+}
+
 function runApply(element, task, size, mode) {
   const recommended = task.team.members.flatMap((member) => Array(member.count).fill(member.major));
   // 내 전공이 추천에 있으면 그 자리를 내가 맡고, 전공을 고르지 않았으면 첫 추천 자리를 내가 맡는다.
   // 고른 인원이 추천 전공보다 많으면 남는 자리는 '전공 무관'이다.
-  const mine = hasMajor() ? myMajor : null;
+  const mine = hasMajor() ? profile.major : null;
   const others = [...recommended];
   if (!mine) others.shift();
   else if (others.includes(mine)) others.splice(others.indexOf(mine), 1);
   while (others.length < size - 1) others.push(ANY_MAJOR);
   const seats = [{ me: true, major: mine }, ...others.slice(0, size - 1).map((major) => ({ major }))];
   const friends = mode === 'friends';
-  appliedTasks.set(task.key, { size, mode });
+  const applyId = newId();
+  appliedTasks.set(task.key, { size, mode, applyId });
+  const sent = sendApplication({
+    id: applyId,
+    taskId: task.taskId,
+    taskSource: task.source,
+    industry: task.industry,
+    area: task.area,
+    category: task.categoryId,
+    grade: profile?.grade ?? '',
+    major: mine ?? '',
+    prefs: myPrefs(),
+    size,
+    mode,
+  });
 
-  const seatHtml = (seat) => {
-    if (seat.me) return `<span class="seat me"><i>나</i><small>${esc(seat.major ?? '전공 미정')}</small></span>`;
-    if (friends) return `<span class="seat invite"><i>+</i><small>${esc(seat.major)}</small></span>`;
+  const seatHtml = (seat, i) => {
+    if (seat.me) return `<span class="seat me"><i>나</i>${seatLabel(profile?.grade, seat.major ?? '전공 미정')}</span>`;
+    // 친구 초대 빈자리는 아직 사람이 없어서 추천 전공만 적는다.
+    if (friends) return `<span class="seat invite"><i>+</i>${seatLabel('', seat.major)}</span>`;
     const [color, short] = MAJOR_BADGE[seat.major] ?? ['#5B6170', '무관'];
-    return `<span class="seat"><i style="--c:${color}">${short}</i><small>${esc(seat.major)}</small></span>`;
+    return `<span class="seat"><i style="--c:${color}">${short}</i>${seatLabel(sampleGrade(`${task.key}|${i}`), seat.major)}</span>`;
   };
   const title = { solo: '혼자 지원했어요!', match: '맞는 학생을 찾는 중이에요', friends: `${size}명 팀으로 지원했어요!` }[mode];
   const message = {
@@ -910,7 +1081,7 @@ function runApply(element, task, size, mode) {
     <h2 class="disp" tabindex="-1" id="team-title">${title}</h2>
     <div class="seats">${seats.map(seatHtml).join('')}</div>
     <p id="team-msg">${message}</p>
-    <p class="status" id="team-note" hidden>시연이라 실제로 지원되지는 않아요</p>
+    <p class="status" id="team-note" hidden></p>
     <div class="row"><button type="button" class="btn white" id="team-close">보드로 돌아가기</button></div>`;
   element.querySelector('#team-close').addEventListener('click', closeApply);
   element.querySelector('h2').focus({ preventScroll: true });
@@ -922,7 +1093,13 @@ function runApply(element, task, size, mode) {
     if (mode !== 'friends') {
       element.querySelector('#team-msg').innerHTML = '사장님과 담당자가 확인하면 정해져요.<br>활동이 끝나면 확인서와 포트폴리오를 받아요.';
     }
-    element.querySelector('#team-note').hidden = false;
+    sent.then((result) => {
+      const note = element.querySelector('#team-note');
+      if (!note) return;
+      const saved = result.mode === 'online' ? '지원 기록을 남겼어요' : '서버에 연결되지 않아 기록은 남지 않았어요';
+      note.textContent = mode === 'match' ? `${saved} · 팀원은 시연용 예시예요` : saved;
+      note.hidden = false;
+    });
   }, SEAT_MS * (filling.length + 1));
 }
 

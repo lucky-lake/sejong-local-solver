@@ -102,11 +102,13 @@ export function summarize(records) {
   return summary;
 }
 
-// 최근 목록에는 알림에 필요한 칸만 남긴다(원문·매장명 없음).
+// 최근 목록에는 알림에 필요한 칸만 남긴다(원문·전화번호 없음. 매장명·위치는 알림에 띄운다).
 function toRecent(record) {
   return {
     id: record.id ?? null,
     ts: record.ts,
+    storeName: record.storeName ?? '',
+    location: record.location ?? '',
     industry: record.industry,
     area: record.area,
     category: record.categories?.[0]?.id ?? null,
@@ -322,6 +324,17 @@ function whereText(item) {
   return `${item.area} ${INDUSTRY_SHORT[item.industry] ?? '가게'}`;
 }
 
+// 알림 제목: 가게 이름이 있으면 가게 이름, 없으면 '동네 업종'(예: 조치원읍 카페)
+function titleText(item) {
+  return String(item.storeName ?? '').trim() || whereText(item);
+}
+
+// 알림 보조 줄: 적어 준 위치와, 가게 이름을 제목으로 썼다면 '동네 업종'
+function placeText(item) {
+  const store = String(item.storeName ?? '').trim();
+  return [String(item.location ?? '').trim(), store ? whereText(item) : ''].filter(Boolean).join(' · ');
+}
+
 function shortName(categoryId) {
   return categoryOf(categoryId)?.short ?? '';
 }
@@ -352,7 +365,7 @@ function showBubble(batch) {
   const bubble = $('bub');
   if (batch.length === 1) {
     const item = batch[0];
-    bubble.innerHTML = `방금 <b>${esc(whereText(item))}</b>에서 <b>${esc(shortName(item.category))}</b> 고민이 왔어요!<span class="wait" id="wait" hidden></span><small>오른쪽 아래 목록에도 쌓여요</small>`;
+    bubble.innerHTML = `방금 <b>${esc(titleText(item))}</b>에서 <b>${esc(shortName(item.category))}</b> 고민이 왔어요!<span class="wait" id="wait" hidden></span><small>${esc(placeText(item) || '오른쪽 아래 목록에도 쌓여요')}</small>`;
   } else {
     const counts = {};
     batch.forEach((item) => {
@@ -478,11 +491,11 @@ function paintPanel(force = false) {
   $('nlist').innerHTML = list.length
     ? list.map(({ item, unread }, i) => {
       const [name, bg, fg] = INDUSTRY_ICON[item.industry] ?? ['store', '#F5F7FA', '#22252B'];
-      const tags = [item.needsAgency ? '기관 연결 필요' : '', STATE_LABEL[item.concernState] ?? ''].filter(Boolean).join(' · ');
+      const tags = [placeText(item), item.needsAgency ? '기관 연결 필요' : '', STATE_LABEL[item.concernState] ?? ''].filter(Boolean).join(' · ');
       const when = item.source === 'seed' ? '예시' : ago(item.ts);
       return `<li><button type="button" class="nit${unread ? ' unread' : ''}" data-i="${i}">`
         + `<span class="nico" style="background:${bg};color:${fg}">${icon(name, 22)}</span>`
-        + `<span><p>${esc(whereText(item))}에서<br>${esc(shortName(item.category))} 고민이 왔어요</p><em>${esc(tags)}</em></span>`
+        + `<span><p>${esc(titleText(item))}에서<br>${esc(shortName(item.category))} 고민이 왔어요</p><em>${esc(tags)}</em></span>`
         + `<span class="tm">${esc(when)}</span>${unread ? '<span class="ndot" aria-label="안 읽음"></span>' : ''}</button></li>`;
     }).join('')
     : `<li class="nempty">${gomi('think', 48)}<span>아직 이 분류의 고민이 없어요</span></li>`;
