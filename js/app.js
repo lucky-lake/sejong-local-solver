@@ -251,7 +251,7 @@ function showDock(html) {
 }
 
 function removeOverlay() {
-  document.querySelector('.done')?.remove();
+  document.querySelectorAll('.done, .modal').forEach((element) => element.remove());
 }
 
 function overlay(className, role, label) {
@@ -289,20 +289,40 @@ function renderLanding() {
     </div>`;
 }
 
+// 운영 방식: 화면 전체를 덮지 않고 글 영역만 카드로 스르륵 띄운다. 바깥(어두운 곳)을 눌러도 닫힌다.
+const MODAL_CLOSE_MS = 220;
+
 function showAbout() {
-  const element = overlay('done about', 'dialog', '운영 방식');
+  const element = overlay('modal', 'dialog', '운영 방식');
   element.setAttribute('aria-modal', 'true');
-  element.innerHTML = `${gomi('happy', 110)}
-    <h2 class="disp" tabindex="-1">이렇게 운영돼요</h2>
-    <ol>
-      <li>사장님이 고민을 올려요</li>
-      <li>학생 팀이 과제를 골라 지원해요</li>
-      <li>가게를 찾아가 진단하고 결과물을 적용해요</li>
-      <li>자금·세무는 공공기관으로 연결해요</li>
-      <li>학생은 활동 인증과 포트폴리오를 받아요</li>
-    </ol>
-    <div class="row"><button type="button" class="btn white" id="close-about">닫기</button></div>`;
-  element.querySelector('#close-about').addEventListener('click', () => closeTo('landing'));
+  element.innerHTML = `<div class="modal-card">
+      ${gomi('happy', 72)}
+      <h2 class="disp" tabindex="-1">이렇게 운영돼요</h2>
+      <ol>
+        <li>사장님이 고민을 올려요</li>
+        <li>학생 팀이 과제를 골라 지원해요</li>
+        <li>가게를 찾아가 진단하고 결과물을 적용해요</li>
+        <li>자금·세무는 공공기관으로 연결해요</li>
+        <li>학생은 활동 인증과 포트폴리오를 받아요</li>
+      </ol>
+      <button type="button" class="btn" id="close-about">닫기</button>
+    </div>`;
+  element.querySelector('#close-about').addEventListener('click', closeAbout);
+  element.addEventListener('click', (event) => {
+    if (event.target === element) closeAbout();
+  });
+}
+
+// 카드가 스르륵 내려가며 사라진 뒤 처음 화면 주소로 돌아간다.
+function closeAbout() {
+  const element = document.querySelector('.modal');
+  if (!element) {
+    closeTo('landing');
+    return;
+  }
+  if (element.classList.contains('closing')) return;
+  element.classList.add('closing');
+  setTimeout(() => closeTo('landing'), MODAL_CLOSE_MS);
 }
 
 // ---------- 질문 5개 ----------
@@ -1160,14 +1180,14 @@ function render() {
 
   prevRoute = route;
   window.scrollTo(0, 0);
-  const heading = document.querySelector('.done h2') ?? app.querySelector('h1');
+  const heading = document.querySelector('.done h2, .modal h2') ?? app.querySelector('h1');
   heading?.focus({ preventScroll: true });
 }
 
 function onKey(event) {
   if (event.key !== 'Escape') return;
   if (document.querySelector('.done.team')) closeApply();
-  else if (routeOf(location.hash) === 'about') closeTo('landing');
+  else if (routeOf(location.hash) === 'about') closeAbout();
 }
 
 // 발표장처럼 접속이 몰릴 때 한 번 실패해도 멈추지 않게 다시 시도한다.
