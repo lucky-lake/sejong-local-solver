@@ -16,6 +16,7 @@ const PATHS = {
   store: '<path d="M4.5 10.5V20h15v-9.5"/><path d="M3 7l2-3.5h14L21 7v1a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M10 20v-5h4v5"/>',
   people: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.8 0 5 2.2 5 5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  phone: '<path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4.5 5.5a2 2 0 0 1 2-2z"/>',
   won: '<circle cx="12" cy="12" r="9"/><path d="M7.5 9l2 6 2.5-5 2.5 5 2-6M7 12h10"/>',
   hall: '<path d="M3 9l9-5 9 5"/><path d="M5 10v8M10 10v8M14 10v8M19 10v8M3 21h18"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',

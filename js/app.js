@@ -50,7 +50,7 @@ const EXAMPLES = [
   '임대료와 세금 때문에 버거워요',
 ];
 const MAJOR_BADGE = { '경영·사회': ['#C9472A', '경'], '디자인·예체능': ['#6A4DE8', '디'], 'IT·이공': ['#0F7F7A', 'IT'] };
-const STEPS = ['industry', 'area', 'state', 'concern'];
+const STEPS = ['industry', 'area', 'shop', 'state', 'concern'];
 const ROUTES = [...STEPS, 'result', 'done'];
 const AUTO_NEXT_MS = 220;
 const PHASE_MS = 360;
@@ -140,6 +140,7 @@ function isUnknown() {
 function stepDone(step) {
   if (step === 'industry') return Boolean(state.industry);
   if (step === 'area') return Boolean(state.area);
+  if (step === 'shop') return !contactProblem();
   if (step === 'state') return Boolean(state.concernState);
   return isUnknown() ? Boolean(state.symptom) : state.text.trim().length > 0;
 }
@@ -235,7 +236,7 @@ function progress(idx, fromIdx) {
 }
 
 function trail(idx) {
-  const items = [['industry', state.industry], ['area', state.area], ['state', stateLabel()]]
+  const items = [['industry', state.industry], ['area', state.area], ['shop', state.store.trim() || '가게 정보'], ['state', stateLabel()]]
     .slice(0, idx)
     .filter(([, label]) => label);
   if (!items.length) return '';
@@ -304,7 +305,7 @@ function showAbout() {
   element.querySelector('#close-about').addEventListener('click', () => closeTo('landing'));
 }
 
-// ---------- 질문 4개 ----------
+// ---------- 질문 5개 ----------
 function renderStep(step) {
   const idx = STEPS.indexOf(step);
   let html = progress(idx, lastProgIdx) + trail(idx);
@@ -313,6 +314,11 @@ function renderStep(step) {
     html += `<h1 class="q disp" tabindex="-1">어떤 가게를 운영하세요?</h1><div class="grid">${INDUSTRIES.map((item) => tile('industry', item)).join('')}</div>`;
   } else if (step === 'area') {
     html += `<h1 class="q disp" tabindex="-1">가게는 어디에 있어요?</h1><div class="list">${AREAS.map((item) => tile('area', item)).join('')}</div>`;
+  } else if (step === 'shop') {
+    html += `<h1 class="q disp" tabindex="-1">가게 정보를 알려 주세요</h1>
+      <p class="exh label">학생 팀과 담당자가 가게를 찾아갈 때 써요</p>
+      ${shopCards()}`;
+    showDock(`<button type="button" class="btn" id="shop-next">다음 ${icon('right', 22)}</button>`);
   } else if (step === 'state') {
     html += `<h1 class="q disp" tabindex="-1">고민은 얼마나 정리됐어요?</h1><div class="list">${CONCERN_STATES.map((item) => tile('concernState', item)).join('')}</div>`;
   } else if (isUnknown()) {
@@ -340,6 +346,19 @@ function renderStep(step) {
   app.querySelectorAll('[data-go]').forEach((button) => {
     button.addEventListener('click', () => go(button.dataset.go));
   });
+
+  if (step === 'shop') {
+    bindShopInputs();
+    document.getElementById('shop-next').addEventListener('click', () => {
+      const problem = contactProblem();
+      if (problem) {
+        showShopError(problem);
+        return;
+      }
+      go(STEPS[idx + 1]);
+    });
+    return;
+  }
 
   app.querySelectorAll('[data-k]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -450,66 +469,69 @@ function agencyCard(list) {
   </div>`;
 }
 
-// 가게 정보: 두 경로(직접 적기·모르겠어요)가 모두 지나는 제출 버튼 바로 위에 둔다.
-// 가게 이름·위치(선택)는 발표 화면 알림에도 나온다. 전화번호(필수)와 연락 동의는 시트에만 남고
-// 발표 화면·집계·알림·과제 보드 어디에도 나오지 않는다. 제출한 뒤에는 잠근다.
-const CONTACT_FIELDS = ['store', 'loc', 'tel'];
+// 가게 정보 단계(지역 다음): 가게 이름·위치·주소(선택) 묶음과 전화번호·연락 동의(필수) 묶음.
+// 가게 이름·위치는 발표 화면 알림에도 나온다. 전화번호와 동의는 시트에만 남고
+// 발표 화면·집계·알림·과제 보드 어디에도 나오지 않는다.
+const SHOP_FIELDS = ['store', 'loc', 'tel'];
+const SHOP_KEYS = { store: 'store', loc: 'location', tel: 'phone' };
 
-function storeCard() {
-  const off = state.submittedId ? ' disabled' : '';
-  return `<div class="store" id="store-card">
-    <p class="store-h"><span class="ib">${icon('store', 18)}</span>가게 정보</p>
-    <label for="store">가게 이름<em>선택</em></label>
-    <input id="store" type="text" maxlength="${MAX_STORE_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원 ○○카페" value="${esc(state.store)}"${off}>
-    <label for="loc">위치·주소<em>선택</em></label>
-    <input id="loc" type="text" maxlength="${MAX_LOCATION_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원역 앞" value="${esc(state.location)}" aria-describedby="loc-note"${off}>
-    <small class="store-note" id="loc-note">상세 주소도 돼요 <span class="nw">(예: 조치원읍 ○○로 12, 2층)</span></small>
-    <label for="tel">전화번호<em class="req">필수</em></label>
-    <input id="tel" type="tel" inputmode="tel" maxlength="13" autocomplete="off" enterkeyhint="done" placeholder="010-0000-0000" value="${esc(state.phone)}" aria-describedby="tel-note"${off}>
-    <small class="store-note" id="tel-note">시연에서는 아무 번호나 넣어도 돼요</small>
-    <label class="agree" for="agree"><input type="checkbox" id="agree"${state.consent ? ' checked' : ''}${off}><span>연락 목적으로만 쓰고, 발표가 끝나면 지우는 데 동의해요</span><em class="req">필수</em></label>
-    <p class="store-err" id="store-err" role="alert"></p>
-    <p>${icon('check', 16)}<span>가게 이름·위치는 발표 화면 알림에 나와요. 전화번호는 담당자만 봐요.</span></p>
-  </div>`;
+function shopCards() {
+  return `<div class="store">
+      <p class="store-h"><span class="ib">${icon('store', 18)}</span>가게<em>선택</em></p>
+      <label for="store">가게 이름</label>
+      <input id="store" type="text" maxlength="${MAX_STORE_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원 ○○카페" value="${esc(state.store)}">
+      <label for="loc">위치·주소</label>
+      <input id="loc" type="text" maxlength="${MAX_LOCATION_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원역 앞" value="${esc(state.location)}" aria-describedby="loc-note">
+      <small class="store-note" id="loc-note">상세 주소도 돼요 <span class="nw">(예: 조치원읍 ○○로 12, 2층)</span></small>
+      <p>${icon('check', 16)}<span>가게 이름·위치는 발표 화면 알림에 나와요.</span></p>
+    </div>
+    <div class="store">
+      <p class="store-h"><span class="ib">${icon('phone', 18)}</span>연락처<em class="req">필수</em></p>
+      <label for="tel">전화번호</label>
+      <input id="tel" type="tel" inputmode="tel" maxlength="13" autocomplete="off" enterkeyhint="done" placeholder="010-0000-0000" value="${esc(state.phone)}" aria-describedby="tel-note">
+      <small class="store-note" id="tel-note">시연에서는 아무 번호나 넣어도 돼요</small>
+      <label class="agree" for="agree"><input type="checkbox" id="agree"${state.consent ? ' checked' : ''}><span>연락 목적으로만 쓰고, 발표가 끝나면 지우는 데 동의해요</span></label>
+      <p class="store-err" id="store-err" role="alert"></p>
+      <p>${icon('check', 16)}<span>전화번호는 담당자만 봐요. 발표 화면에는 나오지 않아요.</span></p>
+    </div>`;
 }
 
-function bindStoreInput() {
-  const card = document.getElementById('store-card');
-  if (!card || state.submittedId) return;
-  const keys = { store: 'store', loc: 'location', tel: 'phone' };
-  CONTACT_FIELDS.forEach((id, i) => {
+function bindShopInputs() {
+  SHOP_FIELDS.forEach((id, i) => {
     const input = document.getElementById(id);
     input.addEventListener('input', () => {
-      state[keys[id]] = input.value;
+      if (state[SHOP_KEYS[id]] !== input.value) answerChanged();
+      state[SHOP_KEYS[id]] = input.value;
       saveState();
-      clearStoreError();
+      clearShopError();
     });
-    // 엔터는 다음 칸으로 가거나 키보드만 닫는다(바로 제출되지 않게).
+    // 엔터는 다음 칸으로 가거나 키보드만 닫는다(바로 다음 단계로 넘어가지 않게).
     input.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter') return;
       event.preventDefault();
-      const next = document.getElementById(CONTACT_FIELDS[i + 1]);
+      const next = document.getElementById(SHOP_FIELDS[i + 1]);
       if (next) next.focus();
       else input.blur();
     });
   });
   document.getElementById('agree').addEventListener('change', (event) => {
+    if (state.consent !== event.target.checked) answerChanged();
     state.consent = event.target.checked;
     saveState();
-    clearStoreError();
+    clearShopError();
   });
 }
 
-// 제출 전에 전화번호와 동의를 확인한다. 문제가 있으면 [칸 id, 안내 문구]를 돌려준다.
+// 전화번호와 동의를 확인한다. 문제가 있으면 [칸 id, 안내 문구]를 돌려준다.
 function contactProblem() {
   if (!normalizePhone(state.phone)) {
-    return ['tel', state.phone.trim() ? '전화번호를 다시 확인해 주세요 (숫자 9~11자리)' : '전화번호를 적어 주세요'];
+    return ['tel', String(state.phone ?? '').trim() ? '전화번호를 다시 확인해 주세요 (숫자 9~11자리)' : '전화번호를 적어 주세요'];
   }
   if (!state.consent) return ['agree', '연락 동의에 체크해 주세요'];
   return null;
 }
 
-function showStoreError([field, message]) {
+function showShopError([field, message]) {
   const target = document.getElementById(field);
   document.getElementById('store-err').textContent = message;
   (field === 'agree' ? target.closest('label') : target).classList.add('bad');
@@ -517,10 +539,10 @@ function showStoreError([field, message]) {
   target.focus({ preventScroll: true });
 }
 
-function clearStoreError() {
+function clearShopError() {
   const error = document.getElementById('store-err');
   if (error) error.textContent = '';
-  document.querySelectorAll('#store-card .bad').forEach((element) => element.classList.remove('bad'));
+  app.querySelectorAll('.store .bad').forEach((element) => element.classList.remove('bad'));
 }
 
 function showResult(analysis) {
@@ -536,9 +558,7 @@ function showResult(analysis) {
     </div>
     ${team ? teamCard(team, teamRange(state.concernState)) : ''}
     ${agencyCard(analysis.agencies)}
-    <div class="human">${gomi('happy', 44)}<span class="human-text"><span>실제 운영에서는 담당자가 이&nbsp;분석을 확인한 뒤 연결해요.</span><span>AI는 추천만 해요.</span></span></div>
-    ${storeCard()}`;
-  bindStoreInput();
+    <div class="human">${gomi('happy', 44)}<span class="human-text"><span>실제 운영에서는 담당자가 이&nbsp;분석을 확인한 뒤 연결해요.</span><span>AI는 추천만 해요.</span></span></div>`;
 
   if (state.submittedId) {
     showDock(`<button type="button" class="btn white" id="again">처음부터 다시 ${icon('left', 20)}</button>`);
@@ -547,9 +567,8 @@ function showResult(analysis) {
   }
   showDock(`<button type="button" class="btn" id="fin">이 고민 제출하기 ${icon('right', 22)}</button>`);
   document.getElementById('fin').addEventListener('click', () => {
-    const problem = contactProblem();
-    if (problem) {
-      showStoreError(problem);
+    if (contactProblem()) {
+      go('shop');
       return;
     }
     const id = newId();
