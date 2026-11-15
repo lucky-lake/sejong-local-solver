@@ -3,7 +3,7 @@
 
 export const MAX_TEXT_LENGTH = 200;
 export const MAX_STORE_LENGTH = 30;
-export const MAX_LOCATION_LENGTH = 30;
+export const MAX_LOCATION_LENGTH = 40;
 
 // 전화번호: 숫자만 남겨 0으로 시작하는 9~11자리일 때만 쓴다(02-123-4567, 010-1234-5678 등). 아니면 빈 값.
 export function normalizePhone(value) {

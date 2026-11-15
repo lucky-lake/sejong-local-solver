@@ -27,7 +27,7 @@ const APPLY_HEADERS = [
 ];
 const MAX_TEXT_LENGTH = 200;
 const MAX_STORE_LENGTH = 30;
-const MAX_LOCATION_LENGTH = 30;
+const MAX_LOCATION_LENGTH = 40;
 const RECENT_COUNT = 10;
 const LOCK_WAIT_MS = 10000;
 const SUMMARY_CACHE_KEY = 'summary-v3';

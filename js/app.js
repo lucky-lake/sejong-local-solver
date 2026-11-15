@@ -461,8 +461,9 @@ function storeCard() {
     <p class="store-h"><span class="ib">${icon('store', 18)}</span>가게 정보</p>
     <label for="store">가게 이름<em>선택</em></label>
     <input id="store" type="text" maxlength="${MAX_STORE_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원 ○○카페" value="${esc(state.store)}"${off}>
-    <label for="loc">위치<em>선택</em></label>
-    <input id="loc" type="text" maxlength="${MAX_LOCATION_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원역 앞, ○○길 12" value="${esc(state.location)}"${off}>
+    <label for="loc">위치·주소<em>선택</em></label>
+    <input id="loc" type="text" maxlength="${MAX_LOCATION_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원역 앞" value="${esc(state.location)}" aria-describedby="loc-note"${off}>
+    <small class="store-note" id="loc-note">상세 주소도 돼요 <span class="nw">(예: 조치원읍 ○○로 12, 2층)</span></small>
     <label for="tel">전화번호<em class="req">필수</em></label>
     <input id="tel" type="tel" inputmode="tel" maxlength="13" autocomplete="off" enterkeyhint="done" placeholder="010-0000-0000" value="${esc(state.phone)}" aria-describedby="tel-note"${off}>
     <small class="store-note" id="tel-note">시연에서는 아무 번호나 넣어도 돼요</small>
