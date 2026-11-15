@@ -808,19 +808,21 @@ function renderProfilePicker() {
     <button type="button" class="link-btn" id="profile-skip">건너뛰고 둘러보기</button>`;
 
   const error = document.getElementById('pick-err');
+  // 학년·전공은 하나만 고르고, 고른 것을 한 번 더 누르면 선택이 풀린다(선호 유형은 원래 켜고 끄기).
   app.querySelectorAll('[data-grade]').forEach((button) => {
     button.addEventListener('click', () => {
-      draft.grade = button.dataset.grade;
-      app.querySelectorAll('[data-grade]').forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+      draft.grade = draft.grade === button.dataset.grade ? '' : button.dataset.grade;
+      app.querySelectorAll('[data-grade]').forEach((other) => other.setAttribute('aria-pressed', String(other.dataset.grade === draft.grade)));
       error.textContent = '';
     });
   });
   app.querySelectorAll('[data-major]').forEach((button) => {
     button.addEventListener('click', () => {
-      draft.major = button.dataset.major;
+      draft.major = draft.major === button.dataset.major ? '' : button.dataset.major;
       app.querySelectorAll('[data-major]').forEach((other) => {
-        other.classList.toggle('on', other === button);
-        other.setAttribute('aria-pressed', String(other === button));
+        const on = other.dataset.major === draft.major;
+        other.classList.toggle('on', on);
+        other.setAttribute('aria-pressed', String(on));
       });
       error.textContent = '';
     });
