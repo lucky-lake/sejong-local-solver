@@ -804,7 +804,8 @@ function boardHero() {
 }
 
 // 학년·전공·선호 과제 유형 고르기. 학년과 전공은 하나씩, 선호 유형은 여러 개(안 골라도 됨).
-function renderProfilePicker() {
+// pending: 둘러보다가 '지원하기'를 눌러 들어온 경우 그 과제. 고르고 나면 바로 그 과제의 지원 창을 연다.
+function renderProfilePicker(pending = null) {
   const draft = {
     grade: profile?.grade ?? '',
     major: MAJORS.includes(profile?.major) ? profile.major : '',
@@ -819,7 +820,7 @@ function renderProfilePicker() {
   }).join('');
   app.innerHTML = `${boardHero()}
     <h2 class="q disp">나를 알려 주세요</h2>
-    <p class="exh label">고른 전공과 선호 유형의 과제를 먼저 보여 드려요. 다른 과제도 지원할 수 있어요.</p>
+    <p class="exh label">${pending ? '지원하려면 학년과 전공을 먼저 알려 주세요. 팀을 짤 때 써요.' : '고른 전공과 선호 유형의 과제를 먼저 보여 드려요. 다른 과제도 지원할 수 있어요.'}</p>
     <p class="pick-h" id="grade-h">학년</p>
     <div class="picks four" role="group" aria-labelledby="grade-h">${GRADES.map((grade) =>
       `<button type="button" class="pick" data-grade="${grade}" aria-pressed="${draft.grade === grade}">${grade}</button>`).join('')}</div>
@@ -866,9 +867,10 @@ function renderProfilePicker() {
     drawBoard();
     window.scrollTo(0, 0);
     app.querySelector('h1')?.focus({ preventScroll: true });
+    if (pending && hasMajor()) showApply(pending);
   };
   document.getElementById('profile-skip').addEventListener('click', () => finish({ skip: true, grade: '', major: '', prefs: [] }));
-  showDock(`<button type="button" class="btn pur" id="profile-done">과제 보러 가기 ${icon('right', 22)}</button>`);
+  showDock(`<button type="button" class="btn pur" id="profile-done">${pending ? '지원 계속하기' : '과제 보러 가기'} ${icon('right', 22)}</button>`);
   document.getElementById('profile-done').addEventListener('click', () => {
     if (!draft.grade || !draft.major) {
       error.textContent = !draft.grade && !draft.major ? '학년과 전공을 골라 주세요' : `${draft.grade ? '전공' : '학년'}을 골라 주세요`;
@@ -953,7 +955,14 @@ function drawBoard() {
   app.querySelectorAll('[data-apply]').forEach((button) => {
     button.addEventListener('click', () => {
       const task = tasks.find((item) => item.key === button.dataset.apply);
-      if (task) showApply(task);
+      if (!task) return;
+      // 학년·전공을 모르면 팀 자리를 채울 수 없으니 먼저 묻는다.
+      if (!hasMajor() || !profile?.grade) {
+        renderProfilePicker(task);
+        window.scrollTo(0, 0);
+        return;
+      }
+      showApply(task);
     });
   });
   app.querySelectorAll('[data-arm]').forEach((button) => {
@@ -1028,7 +1037,6 @@ function renderBoard() {
 }
 
 // 지원하기 → 인원 고르기(1명~추천 최대) → 혼자 / 학생 찾기 / 친구와 함께 → 자리 채우기
-const ANY_MAJOR = '전공 무관';
 
 function applyChoices(size) {
   if (size === 1) {
@@ -1085,13 +1093,12 @@ function seatLabel(grade, major) {
 
 function runApply(element, task, size, mode) {
   const recommended = task.team.members.flatMap((member) => Array(member.count).fill(member.major));
-  // 내 전공이 추천에 있으면 그 자리를 내가 맡고, 전공을 고르지 않았으면 첫 추천 자리를 내가 맡는다.
-  // 고른 인원이 추천 전공보다 많으면 남는 자리는 '전공 무관'이다.
-  const mine = hasMajor() ? profile.major : null;
+  // 내 전공이 추천에 있으면 그 자리를 내가 맡는다(지원 전에 학년·전공을 꼭 받는다).
+  // 고른 인원이 추천 전공보다 많으면 남는 자리도 그 과제의 추천 전공을 차례로 돌아가며 채운다.
+  const mine = profile.major;
   const others = [...recommended];
-  if (!mine) others.shift();
-  else if (others.includes(mine)) others.splice(others.indexOf(mine), 1);
-  while (others.length < size - 1) others.push(ANY_MAJOR);
+  if (others.includes(mine)) others.splice(others.indexOf(mine), 1);
+  for (let k = 0; others.length < size - 1; k += 1) others.push(recommended[k % recommended.length]);
   const seats = [{ me: true, major: mine }, ...others.slice(0, size - 1).map((major) => ({ major }))];
   const friends = mode === 'friends';
   const applyId = newId();
@@ -1103,18 +1110,18 @@ function runApply(element, task, size, mode) {
     industry: task.industry,
     area: task.area,
     category: task.categoryId,
-    grade: profile?.grade ?? '',
-    major: mine ?? '',
+    grade: profile.grade,
+    major: mine,
     prefs: myPrefs(),
     size,
     mode,
   });
 
   const seatHtml = (seat, i) => {
-    if (seat.me) return `<span class="seat me"><i>나</i>${seatLabel(profile?.grade, seat.major ?? '전공 미정')}</span>`;
+    if (seat.me) return `<span class="seat me"><i>나</i>${seatLabel(profile.grade, seat.major)}</span>`;
     // 친구 초대 빈자리는 아직 사람이 없어서 추천 전공만 적는다.
     if (friends) return `<span class="seat invite"><i>+</i>${seatLabel('', seat.major)}</span>`;
-    const [color, short] = MAJOR_BADGE[seat.major] ?? ['#5B6170', '무관'];
+    const [color, short] = MAJOR_BADGE[seat.major];
     return `<span class="seat"><i style="--c:${color}">${short}</i>${seatLabel(sampleGrade(`${task.key}|${i}`), seat.major)}</span>`;
   };
   const title = { solo: '혼자 지원했어요!', match: '맞는 학생을 찾는 중이에요', friends: `${size}명 팀으로 지원했어요!` }[mode];
