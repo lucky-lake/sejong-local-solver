@@ -489,7 +489,7 @@ function agencyCard(list) {
   </div>`;
 }
 
-// 가게 정보 단계(지역 다음): 가게 이름·위치·주소(선택) 묶음과 전화번호·연락 동의(필수) 묶음.
+// 가게 정보 단계(지역 다음): 가게 이름·위치·주소 묶음과 전화번호·연락 동의 묶음. 모두 필수(11/16).
 // 가게 이름·위치는 발표 화면 알림에도 나온다. 전화번호와 동의는 시트에만 남고
 // 발표 화면·집계·알림·과제 보드 어디에도 나오지 않는다.
 const SHOP_FIELDS = ['store', 'loc', 'tel'];
@@ -497,12 +497,13 @@ const SHOP_KEYS = { store: 'store', loc: 'location', tel: 'phone' };
 
 function shopCards() {
   return `<div class="store">
-      <p class="store-h"><span class="ib">${icon('store', 18)}</span>가게<em>선택</em></p>
+      <p class="store-h"><span class="ib">${icon('store', 18)}</span>가게<em class="req">필수</em></p>
       <label for="store">가게 이름</label>
       <input id="store" type="text" maxlength="${MAX_STORE_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원 ○○카페" value="${esc(state.store)}">
       <label for="loc">위치·주소</label>
       <input id="loc" type="text" maxlength="${MAX_LOCATION_LENGTH}" autocomplete="off" enterkeyhint="next" placeholder="예: 조치원역 앞" value="${esc(state.location)}" aria-describedby="loc-note">
       <small class="store-note" id="loc-note">상세 주소도 돼요 <span class="nw">(예: 조치원읍 ○○로 12, 2층)</span></small>
+      <p class="store-err" role="alert"></p>
       <p>${icon('check', 16)}<span>가게 이름·위치는 발표 화면 알림에 나와요.</span></p>
     </div>
     <div class="store">
@@ -511,7 +512,7 @@ function shopCards() {
       <input id="tel" type="tel" inputmode="tel" maxlength="13" autocomplete="off" enterkeyhint="done" placeholder="010-0000-0000" value="${esc(state.phone)}" aria-describedby="tel-note">
       <small class="store-note" id="tel-note">시연에서는 아무 번호나 넣어도 돼요</small>
       <label class="agree" for="agree"><input type="checkbox" id="agree"${state.consent ? ' checked' : ''}><span>연락 목적으로만 쓰고, 발표가 끝나면 지우는 데 동의해요</span></label>
-      <p class="store-err" id="store-err" role="alert"></p>
+      <p class="store-err" role="alert"></p>
       <p>${icon('check', 16)}<span>전화번호는 담당자만 봐요. 발표 화면에는 나오지 않아요.</span></p>
     </div>`;
 }
@@ -542,8 +543,10 @@ function bindShopInputs() {
   });
 }
 
-// 전화번호와 동의를 확인한다. 문제가 있으면 [칸 id, 안내 문구]를 돌려준다.
+// 가게 이름·위치·전화번호·동의를 확인한다. 문제가 있으면 [칸 id, 안내 문구]를 돌려준다.
 function contactProblem() {
+  if (!String(state.store ?? '').trim()) return ['store', '가게 이름을 적어 주세요'];
+  if (!String(state.location ?? '').trim()) return ['loc', '위치나 주소를 적어 주세요'];
   if (!normalizePhone(state.phone)) {
     return ['tel', String(state.phone ?? '').trim() ? '전화번호를 다시 확인해 주세요 (숫자 9~11자리)' : '전화번호를 적어 주세요'];
   }
@@ -553,15 +556,16 @@ function contactProblem() {
 
 function showShopError([field, message]) {
   const target = document.getElementById(field);
-  document.getElementById('store-err').textContent = message;
+  target.closest('.store').querySelector('.store-err').textContent = message;
   (field === 'agree' ? target.closest('label') : target).classList.add('bad');
   target.scrollIntoView({ block: 'center', behavior: 'smooth' });
   target.focus({ preventScroll: true });
 }
 
 function clearShopError() {
-  const error = document.getElementById('store-err');
-  if (error) error.textContent = '';
+  app.querySelectorAll('.store .store-err').forEach((error) => {
+    error.textContent = '';
+  });
   app.querySelectorAll('.store .bad').forEach((element) => element.classList.remove('bad'));
 }
 
