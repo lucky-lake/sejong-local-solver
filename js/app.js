@@ -797,7 +797,7 @@ function likesIt(task) {
 }
 
 function boardHero() {
-  return `<span class="badge">시연용 · 예시 과제 포함</span>
+  return `<span class="badge">시연용</span>
     <div class="board-hero"><span class="spk">${icon('spark', 20)}</span>${gomi('happy', 72)}
       <div><h1 class="disp" tabindex="-1">학생 과제 보드</h1><p>사장님들이 올린 고민이 과제가 돼요.<br>혼자도, 팀으로도 지원할 수 있어요.</p></div>
     </div>`;
@@ -903,8 +903,9 @@ function applyButton(task) {
 
 function taskCard(task) {
   const info = industryInfo(task.industry);
+  // 예시 과제는 접수 시각이 없어 시각 배지를 달지 않는다('예시' 표시는 하지 않음, 11/25 운호 결정).
   const when = task.source === 'seed'
-    ? '<span class="when">예시</span>'
+    ? ''
     : `<span class="when new">${task.source === 'device' ? '이 기기 · ' : ''}${esc(ago(task.ts))}</span>`;
   const badges = `${fitsMe(task) ? '<span class="fit">내 전공 추천</span>' : ''}${likesIt(task) ? '<span class="fit like">선호 유형</span>' : ''}`;
   return `<article class="card task">
@@ -929,9 +930,9 @@ function drawBoard() {
     .sort((a, b) => score(b.task) - score(a.task) || a.i - b.i)
     .map(({ task }) => task);
   const liveCount = tasks.filter((task) => task.source !== 'seed').length;
-  let status = `방금 들어온 과제 ${liveCount}건 · 예시 과제 ${tasks.length - liveCount}건`;
-  if (!isConfigured()) status = '서버 연결 전이라 이 기기 접수와 예시 과제만 보여요';
-  else if (liveFailed && !liveRecent) status = '서버에 연결하지 못해 예시 과제만 보여요';
+  let status = `과제 ${tasks.length}건${liveCount ? ` · 방금 들어온 과제 ${liveCount}건` : ''}`;
+  if (!isConfigured()) status = '서버 연결 전이라 이 기기에서 올린 과제만 새로 보여요';
+  else if (liveFailed && !liveRecent) status = '서버에 연결하지 못해 방금 들어온 과제는 안 보여요';
   if (hasMajor()) status += ` · 내 전공 추천 ${tasks.filter(fitsMe).length}건`;
   if (myPrefs().length) status += ` · 선호 유형 ${tasks.filter(likesIt).length}건`;
 

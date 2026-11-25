@@ -237,7 +237,6 @@ function renderStatus() {
   if (mode === 'live') $('mode-text').textContent = '실시간';
   else if (mode === 'stale') $('mode-text').textContent = `연결 끊김 · ${clock(lastOkAt)} 기준`;
   else $('mode-text').textContent = isConfigured() ? '서버 연결 안 됨 · 오프라인 시연' : '오프라인 시연';
-  $('seed-tag').textContent = showSeed ? '예시 데이터 포함' : '실제 접수만';
 }
 
 function renderKpis(view, animate) {
@@ -294,8 +293,8 @@ function renderFeed(view) {
   const items = view.recent.slice(0, FEED_SHOWN);
   $('feed').innerHTML = items.map((item) => {
     const isNew = previous && !before.has(recentKey(item));
-    // 예시 데이터의 시각은 실제 접수 시각이 아니므로 시각 자리에 '예시'를 쓴다.
-    const when = item.source === 'seed' ? '예시' : ago(item.ts);
+    // 예시 데이터는 실제 접수 시각이 없으므로 시각 자리를 비워 둔다('예시' 표시는 하지 않음, 11/25 운호 결정).
+    const when = item.source === 'seed' ? '' : ago(item.ts);
     const where = `${item.industry} · ${item.area}${item.source === 'device' ? ' · 이 기기' : ''}`;
     return `<li class="${isNew ? 'new' : ''}"><div>${esc(categoryOf(item.category)?.name ?? '분류 없음')}<em>${esc(where)}</em></div><span>${esc(when)}</span></li>`;
   }).join('') || '<li class="empty">아직 들어온 고민이 없어요</li>';
@@ -492,7 +491,7 @@ function paintPanel(force = false) {
     ? list.map(({ item, unread }, i) => {
       const [name, bg, fg] = INDUSTRY_ICON[item.industry] ?? ['store', '#F5F7FA', '#22252B'];
       const tags = [placeText(item), item.needsAgency ? '기관 연결 필요' : '', STATE_LABEL[item.concernState] ?? ''].filter(Boolean).join(' · ');
-      const when = item.source === 'seed' ? '예시' : ago(item.ts);
+      const when = item.source === 'seed' ? '' : ago(item.ts);
       return `<li><button type="button" class="nit${unread ? ' unread' : ''}" data-i="${i}">`
         + `<span class="nico" style="background:${bg};color:${fg}">${icon(name, 22)}</span>`
         + `<span><p>${esc(titleText(item))}에서<br>${esc(shortName(item.category))} 고민이 왔어요</p><em>${esc(tags)}</em></span>`
@@ -647,7 +646,7 @@ function setupAdmin() {
 async function resetData() {
   const message = $('admin-msg');
   const question = isConfigured()
-    ? '실시간 시연 데이터를 모두 지울까요? 예시 데이터는 그대로 남아요.'
+    ? '실시간 시연 데이터를 모두 지울까요? 설문 데이터는 그대로 남아요.'
     : '이 기기에 저장된 시연 접수를 지울까요?';
   if (!window.confirm(question)) return;
 
